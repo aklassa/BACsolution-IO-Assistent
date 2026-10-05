@@ -125,6 +125,7 @@ struct ControllerCredentialsFields: View {
     @State private var username = ""
     @State private var password = ""
     @State private var editingCredentials = false
+    @State private var certificateChecked = false
     @State private var error = ""
     var body: some View {
         NavigationStack {
@@ -141,14 +142,32 @@ struct ControllerCredentialsFields: View {
                     if session.loading { Button("Verbindungsversuch abbrechen") { session.cancelLogin() } }
                     if !error.isEmpty { Text(error).foregroundStyle(.red) }
                 }
-                if editingCredentials || (!session.loading && !session.ready) {
+                if let certificate = session.pendingCertificate {
+                    Section("Controller-Zertifikat prüfen") {
+                        Text(certificate.origin).font(.headline)
+                        Text(certificate.subject).font(.subheadline)
+                        if session.trustedCertificate != nil {
+                            Text("Das bisher freigegebene Zertifikat stimmt nicht mehr überein.").foregroundStyle(.red)
+                        }
+                        Text("SHA-256-Fingerabdruck").font(.caption).foregroundStyle(.secondary)
+                        Text(certificate.formattedFingerprint).font(.system(.caption, design: .monospaced)).textSelection(.enabled)
+                        Text("Vergleiche den Fingerabdruck mit dem Zertifikat am Controller oder auf einem bereits geprüften PC. Die Freigabe gilt nur für diese Station, diese HTTPS-Adresse und dieses Zertifikat auf diesem iPhone.").font(.caption)
+                        Toggle("Fingerabdruck am Controller geprüft", isOn: $certificateChecked)
+                        Button("Zertifikat speichern und verbinden", systemImage: "checkmark.shield") {
+                            do { error = ""; try session.trustPendingCertificate() }
+                            catch { self.error = error.localizedDescription }
+                        }.disabled(!certificateChecked || model.locked)
+                        Button("Verbindung abbrechen", role: .cancel) { session.rejectPendingCertificate() }
+                    }
+                }
+                if session.pendingCertificate == nil && (editingCredentials || (!session.loading && !session.ready)) {
                     ControllerCredentialsFields(username: $username, password: $password)
                     Section {
                         Button("Speichern und verbinden", systemImage: "network") { saveAndConnect() }
                             .disabled(session.loading || model.locked)
                             .accessibilityIdentifier("saveControllerLogin")
                     }
-                } else {
+                } else if session.pendingCertificate == nil {
                     Section {
                         Button("Zugangsdaten ändern", systemImage: "key.fill") { editingCredentials = true }
                             .disabled(session.loading || model.locked)
@@ -161,6 +180,27 @@ struct ControllerCredentialsFields: View {
                             session.confirmIdentity(); dismiss()
                             Task { await model.reload() }
                         }.buttonStyle(.borderedProminent).disabled(model.locked)
+                    }
+                }
+                if let certificate = session.trustedCertificate {
+                    Section {
+                        DisclosureGroup("Gespeichertes Controller-Zertifikat") {
+                            Text(certificate.formattedFingerprint).font(.system(.caption, design: .monospaced)).textSelection(.enabled)
+                            Button("Zertifikatsfreigabe entfernen", role: .destructive) {
+                                do { try session.forgetCertificate() }
+                                catch { self.error = error.localizedDescription }
+                            }.disabled(session.loading || model.locked)
+                        }
+                    }
+                }
+                Section {
+                    DisclosureGroup("Verbindungsdiagnose") {
+                        Text(session.diagnosticReport).font(.system(.caption, design: .monospaced)).textSelection(.enabled)
+                        Button("Diagnose kopieren", systemImage: "doc.on.doc") { UIPasteboard.general.string = session.diagnosticReport }
+                        if let origin = session.station?.origin, let url = URL(string: origin + "/webui/liob/iotest") {
+                            Link("Controller in Safari prüfen", destination: url)
+                        }
+                        Text("Die Diagnose enthält die Controller-Adresse und technische Verbindungsschritte, keine Passwörter oder Sitzungstoken.").font(.caption).foregroundStyle(.secondary)
                     }
                 }
             }
@@ -178,6 +218,7 @@ struct ControllerCredentialsFields: View {
                 } catch { self.error = error.localizedDescription; editingCredentials = true }
             }
             .onChange(of: session.ready) { ready in if ready { editingCredentials = false; error = "" } }
+            .onChange(of: session.pendingCertificate?.id) { _ in certificateChecked = false }
             .onDisappear { password = ""; session.cancelLogin() }
         }
     }

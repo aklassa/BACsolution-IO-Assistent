@@ -1,4 +1,4 @@
-BACsolution I/O-Assistent 0.1.3 - Codemagic und TestFlight
+BACsolution I/O-Assistent 0.1.4 - Codemagic und TestFlight
 Stand: 5. Oktober 2026
 
 Du fuehrst die folgenden Schritte selbst aus. Es wurde noch kein Remote-Build
@@ -60,7 +60,7 @@ Invoke-IoGit init -b main
 Invoke-IoGit config --local user.name $ioAuthor
 Invoke-IoGit config --local user.email $ioEmail
 Invoke-IoGit add -- App Shared Resources SyncServer Tests scripts BACsolution.xcodeproj .github .gitignore README.md TESTFLIGHT_START.txt CODEMAGIC_BEFEHLE.txt codemagic.yaml package.json docs
-Invoke-IoGit commit -m 'Prepare BACsolution IO 0.1.3 for internal TestFlight'
+Invoke-IoGit commit -m 'Prepare BACsolution IO 0.1.4 for internal TestFlight'
 Invoke-IoGit remote add origin $ioRepoUrl
 Invoke-IoGit push -u origin main
 ----- ENDE POWERSHELL -----
@@ -99,7 +99,7 @@ Voraussetzung: aktiver Apple-Developer-Zugang.
 
 Diese Werte muessen zusammenpassen:
 App / Scheme:                  BACsolution
-Version:                       0.1.3
+Version:                       0.1.4
 Bundle-ID:                     de.bacsolution.io.assistent.dev
 Apple-Integrationsname:         BACsolution Apple
 Signierung:                    Apple Distribution + App Store Profil
@@ -141,7 +141,7 @@ xcode-project build-ipa --project BACsolution.xcodeproj --scheme BACsolution
 ----- ENDE MAC-KOMMANDOS -----
 
 Das Publishing in der YAML uebernimmt danach den IPA-Upload zu Apple.
-Die Versionsnummer bleibt 0.1.3; PROJECT_BUILD_NUMBER setzt pro Codemagic-Lauf
+Die Versionsnummer bleibt 0.1.4; PROJECT_BUILD_NUMBER setzt pro Codemagic-Lauf
 eine neue Buildnummer. BAC_IO_BUILD_OFFSET bleibt bei einem neuen Projekt 0.
 Bei einem Umzug einer bestehenden Apple-App auf ein neues Codemagic-Projekt
 den Offset so waehlen, dass die neue Nummer ueber den bisherigen Builds liegt.

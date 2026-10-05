@@ -46,7 +46,7 @@ Optional: `BAC_IO_VOICE_MODEL` legt das serverseitige Realtime-Modell fest; Stan
 
 ## Grenzen dieses Teststands
 
-- Noch kein Live-Test mit kostenpflichtiger KI-Verbindung und kein nativer Build für 0.1.3. Portable Tests simulieren den API-Dienst.
+- Noch kein Live-Test mit kostenpflichtiger KI-Verbindung und kein nativer Build für 0.1.4. Portable Tests simulieren den API-Dienst.
 - Internet und gleichzeitige Controller-Erreichbarkeit erforderlich. Keine automatische neue Sitzung oder Schreibwiederholung nach Abbruch. Lokale Sprach-/Texteingabe bleibt nutzbar.
 - Zehn Minuten je App-Testabschnitt, höchstens zwölf Sitzungsfreigaben je Serverprozess/Stunde. Diese Grenzen sind keine garantierte Geldobergrenze. Abrechnung und Projektlimits im API-Konto gesondert verwalten.
 - Sprach- und KI-Fehler sind möglich. Punktname, Einheit und Referenz werden vor einer Kommentar-Speicherung vorgelesen und angezeigt.

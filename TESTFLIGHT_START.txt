@@ -1,4 +1,4 @@
-BACsolution I/O-Assistent – Testversion 0.1.3
+BACsolution I/O-Assistent – Testversion 0.1.4
 Stand: 5. Oktober 2026
 
 Dieses Paket enthält den Quellcode für Codemagic. Es ist noch keine
@@ -26,7 +26,7 @@ stehen in CODEMAGIC_BEFEHLE.txt. Du übernimmst Upload und Buildstart selbst.
 4. Nach erfolgreichem ios-check den Workflow ios-testflight-internal
    starten (Name: BACsolution IO - internes TestFlight).
    Er erstellt und signiert die IPA und lädt sie zu App Store Connect hoch.
-   Version: 0.1.3. Die Buildnummer vergibt Codemagic automatisch.
+   Version: 0.1.4. Die Buildnummer vergibt Codemagic automatisch.
 
 5. Nach Apples Verarbeitung den Build in App Store Connect der eigenen
    internen Testgruppe zuweisen. Auf dem iPhone über TestFlight installieren.

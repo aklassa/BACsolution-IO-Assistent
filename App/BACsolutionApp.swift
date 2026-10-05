@@ -41,6 +41,10 @@ import SwiftUI
                 }
             }
         }
+        .background(alignment: .topLeading) {
+            ControllerTransportView(session: session)
+                .frame(width: 1, height: 1).clipped().allowsHitTesting(false).accessibilityHidden(true)
+        }
         .sheet(isPresented: $model.showLogin) { LoginView() }
         .sheet(item: $model.reviewPoint) { point in ReviewView(point: point) }
         .onChange(of: scenePhase) { phase in
