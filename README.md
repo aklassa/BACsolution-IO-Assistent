@@ -1,15 +1,17 @@
-# BACsolution I/O-Assistent – Testversion 0.1.1
+# BACsolution I/O-Assistent – Arbeitsstand 0.1.2
 
 Unveröffentlichter Quellcode für eine native iPhone-App ab iOS 17. Zielgerät der Controller-Anbindung: **LOYTEC LIOB-589, Firmware 8.4.20**. Die vorhandene Desktop-Erweiterung und deren veröffentlichte ZIP-Datei wurden durch diese Vorbereitung nicht geändert.
 
-**Status:** Funktionscode und Xcode-Projekt vorbereitet. Noch kein mit Xcode gebauter, signierter oder auf einem iPhone erprobter App-Build. Kein TestFlight- oder App-Store-Upload. Der gemeinsame Speicher ist als optionaler Client und ausführbarer Referenzdienst enthalten; es ist kein Server eingerichtet. Die bestehende PC-Erweiterung verwendet den Abgleichdienst noch nicht.
+**Status 0.1.2:** Die Controller-Anmeldung wurde nach dem gemeldeten Absturz beim Antippen der Web-Eingabefelder umgebaut. Account und Passwort werden in nativen App-Feldern erfasst und pro Station im iOS-Schlüsselbund gespeichert. Dieser neue Arbeitsstand ist lokal auf Logik und Projektstruktur geprüft; Xcode-Build und Gerätetest stehen noch aus. Der genaue ursprüngliche Absturzgrund ist ohne iPhone-Absturzprotokoll nicht belegt. Der gemeinsame Speicher ist als optionaler Client und ausführbarer Referenzdienst enthalten; es ist kein Server eingerichtet. Die bestehende PC-Erweiterung verwendet den Abgleichdienst noch nicht.
 
-**Codemagic/TestFlight:** Version **0.1.1** ist für den internen TestFlight-Build vorbereitet. Version und Buildnummer stehen auch in der App unter **Abgleich → App**. `codemagic.yaml` enthält einen unsignierten Build-Check und einen manuellen Workflow für den signierten internen TestFlight-Upload. Beginne mit `TESTFLIGHT_START.txt`; die vollständige Einrichtung vom Windows-PC steht in `docs/CODEMAGIC_TESTFLIGHT.md`. Der erste Codemagic-Lauf und die Installation auf dem iPhone stehen weiterhin aus.
+**Codemagic/TestFlight:** Für den bisherigen Stand 0.1.1 wurden ein erfolgreicher Codemagic-Simulator-Build und der App-Start auf dem iPhone vom Anwender gezeigt. Version **0.1.2** ist als nächstes Update vorbereitet. Version und Buildnummer stehen unter **Abgleich → App**. Die bestehenden manuellen Workflows bleiben verwendbar. Die Update-Anleitung steht in `docs/UPDATE_0.1.2.md`. Dieser Arbeitsstand wurde nicht hochgeladen oder veröffentlicht.
 
 ## Enthalten
 
 - Projekte mit eigenen Stations-IDs, Controller-Adresse und eindeutiger Stationskennung. Diese IDs bleiben unabhängig von der IP-Adresse.
-- Normale LOYTEC-Anmeldung in einer eingebetteten Browseransicht. Die App verwendet die angemeldete I/O-Testseite; sie exportiert keine Controller-Passwörter oder CSRF-Token.
+- Native Felder für Account und Passwort beim Anlegen eines Projekts mit erster Station sowie jeder weiteren Station. Bestehende Stationen können Zugangsdaten im Verbindungsdialog ergänzen oder ändern.
+- Automatische Anmeldung über die in Firmware 8.4.20 vorgefundene LOYTEC-Schnittstelle. WebKit dient nur als Sitzungs- und Protokolltransport und wird nicht als Eingabefläche eingeblendet. Ein abgewiesener oder unklarer Anmeldeversuch wird nicht automatisch wiederholt.
+- Controller-Passwörter liegen ausschließlich im gerätegebundenen Schlüsselbund, getrennt nach Stations-ID und Controller-Adresse einschließlich Protokoll und Port. Projektdateien, Prüfergebnisse und Serverabgleich enthalten keine Zugangsdaten. Auf weiteren iPhones ist eine einmalige Eingabe erforderlich.
 - Lesen aller von der Station angebotenen I/O-Busse. Suche über Namen, Beschreibung, Klemme, Gerät und Bus. Ein- und Ausgänge werden angezeigt; aktive Ausgangsansteuerung ist nicht implementiert.
 - 58 vorbelegte Begriffe aus dem bisherigen Arbeitsstand, eigene Ergänzungen und deaktivierbare Begriffe. Weitere Bezeichnungen stehen einzeln untereinander. Das Verzeichnis gilt für alle Projekte der App.
 - Native Spracherkennung und Sprachausgabe, einschließlich Bluetooth-HFP-Kopfhörern. Halbduplex: während der Sprachausgabe wird nicht zugehört. Nur abgeschlossene Erkennungsergebnisse werden als Befehle verarbeitet.
@@ -37,8 +39,8 @@ Unter Windows können Quellcode und JavaScript-Tests bearbeitet werden. Der nati
 ## Erster Gerätetest
 
 1. iPhone mit einem Netz verbinden, das den Controller erreicht. Unter **Abgleich → Prüfer** den eigenen Namen speichern. Ein gemeinsamer Server ist für den lokalen Controller-Test nicht erforderlich.
-2. Projekt und Station anlegen. Bei „Stationskennung“ beispielsweise die Controller-Seriennummer eintragen und am realen Gerät vergleichen.
-3. Station öffnen, auf der echten LOYTEC-Seite anmelden, anschließend bei Bedarf **I/O-Testseite öffnen**. Die hinterlegte Identität mit dem tatsächlichen Controller vergleichen und **Identität bestätigt · Lesen** wählen. Eine automatische Seriennummer-Erkennung wurde nicht vorausgesetzt.
+2. Projekt und Station mit Controller-Adresse, Stationskennung, Account und Passwort anlegen. Bei „Stationskennung“ beispielsweise die Controller-Seriennummer eintragen und am realen Gerät vergleichen.
+3. Station öffnen. Die App meldet sich mit den gespeicherten Zugangsdaten an und lädt die I/O-Testseite. Bei einer bestehenden Station ohne gespeicherte Zugangsdaten einmal **Speichern und verbinden** wählen. Nach erfolgreicher Anmeldung die hinterlegte Identität vor Ort vergleichen und **Identität bestätigt · Lesen** wählen. Eine automatische Seriennummer-Erkennung wird nicht vorausgesetzt. Änderungen an Account oder Passwort sind unter **Zugangsdaten ändern** möglich.
 4. Zunächst einen bekannten Eingang auswählen und aktuellen Wert vorlesen lassen. Danach „Wert von Zulufttemperatur Anlage 2.1“ oder einen tatsächlich vorhandenen Punktnamen sprechen.
 5. Bei mehreren Treffern „Treffer zwei“ sagen. Die App liest den gewählten Punkt erneut. Anlage 2.1 und 2.10 dürfen nicht verwechselt werden.
 6. An einem vorgesehenen Prüfpunkt einen Kommentar vormerken und ausdrücklich speichern. Kommentar und gegebenenfalls Prüfstatus anschließend auch in der LOYTEC-Oberfläche vergleichen.

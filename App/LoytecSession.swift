@@ -1,40 +1,94 @@
 import Foundation
 import WebKit
-import SwiftUI
+import Combine
+
+private struct ControllerLoginReply: Decodable { let state: String; let message: String? }
 
 @MainActor final class LoytecSession: NSObject, ObservableObject, WKNavigationDelegate {
     @Published private(set) var pageStatus = "Nicht verbunden"
     @Published private(set) var ready = false
     @Published private(set) var loading = false
     @Published private(set) var identityConfirmed = false
+    @Published private(set) var controllerProduct = ""
     private(set) var station: Station?
-    let webView: WKWebView
+    // WebKit is a transport only. It is never attached to a view/window, so the
+    // controller's legacy focus()/select() calls cannot open an iOS web keyboard.
+    private var webView: WKWebView
     private let script: String
-    override init() {
+    private let loginScript: String
+    private var credentials: ControllerCredentials?
+    private var connectionID = UUID()
+    private var pageID = UUID()
+    private var loginAttempted = false
+    private var ioRedirectAttempted = false
+    private var pageTask: Task<Void, Never>?
+    private var deadline: Task<Void, Never>?
+
+    private static func makeWebView() -> WKWebView {
         let configuration = WKWebViewConfiguration()
-        // Session is intentionally transient. Passwords and CSRF tokens stay in WebKit.
         configuration.websiteDataStore = .nonPersistent()
-        webView = WKWebView(frame: .zero, configuration: configuration)
+        let view = WKWebView(frame: .zero, configuration: configuration)
+        view.isUserInteractionEnabled = false
+        view.allowsBackForwardNavigationGestures = false
+        return view
+    }
+
+    override init() {
+        webView = Self.makeWebView()
         script = Bundle.main.url(forResource: "ControllerBridge", withExtension: "js")
+            .flatMap { try? String(contentsOf: $0, encoding: .utf8) } ?? ""
+        loginScript = Bundle.main.url(forResource: "ControllerLogin", withExtension: "js")
             .flatMap { try? String(contentsOf: $0, encoding: .utf8) } ?? ""
         super.init()
         webView.navigationDelegate = self
-        webView.allowsBackForwardNavigationGestures = false
     }
+
     func connect(_ station: Station) {
-        self.station = station; ready = false; loading = true; identityConfirmed = false
-        pageStatus = "Controller-Anmeldung öffnen"
+        pageTask?.cancel(); deadline?.cancel()
+        connectionID = UUID(); pageID = UUID()
+        webView.navigationDelegate = nil
+        webView.stopLoading()
+        // Isolate cookies even when two stations/projects use the same IP address.
+        webView = Self.makeWebView()
+        webView.navigationDelegate = self
+        self.station = station
+        ready = false; identityConfirmed = false; controllerProduct = ""
+        credentials = nil; loginAttempted = false; ioRedirectAttempted = false
+        do { credentials = try ControllerCredentialStore.read(for: station) }
+        catch { stopWithMessage(error.localizedDescription); return }
+        loading = true
+        pageStatus = "Verbindung zum Controller wird hergestellt …"
+        let connection = connectionID
+        deadline = Task { [weak self] in
+            do { try await Task.sleep(nanoseconds: 30_000_000_000) } catch { return }
+            guard let self, self.connectionID == connection, self.loading else { return }
+            self.cancelLogin(message: "Controller antwortet nicht rechtzeitig. Verbindung prüfen und erneut verbinden.")
+        }
+        loadIOPage()
+    }
+
+    private func loadIOPage() {
+        guard let station else { return }
         guard let url = URL(string: station.origin + "/webui/liob/iotest") else { loading = false; return }
         webView.load(URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 15))
     }
     func openIOPage() { if let station { connect(station) } }
     func confirmIdentity() { if ready { identityConfirmed = true } }
+
+    func cancelLogin(message: String = "Verbindung pausiert. Bei Bedarf erneut verbinden.") {
+        guard loading else { return }
+        connectionID = UUID(); pageID = UUID()
+        pageTask?.cancel(); webView.stopLoading()
+        stopWithMessage(message)
+    }
+
     func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+        guard webView === self.webView else { decisionHandler(.cancel); return }
         guard let origin = station?.origin, let url = action.request.url,
               let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
               components.user == nil, components.password == nil,
               sameOrigin(url, origin), action.targetFrame?.isMainFrame == true else {
-            pageStatus = "Navigation außerhalb des gewählten Controllers blockiert"
+            stopWithMessage("Navigation außerhalb des gewählten Controllers blockiert")
             decisionHandler(.cancel); return
         }
         decisionHandler(.allow)
@@ -45,21 +99,106 @@ import SwiftUI
         return url.scheme == expected.scheme && url.host?.lowercased() == expected.host?.lowercased() && port(url) == port(expected)
     }
     func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
-        ready = false; loading = true
+        guard webView === self.webView else { return }
+        pageID = UUID(); pageTask?.cancel()
+        ready = false; identityConfirmed = false; loading = true
     }
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-        loading = false
-        Task { do { let _: ControllerRead = try await run(["operation": "info"]); ready = true; pageStatus = "I/O-Testseite bereit" }
-            catch { ready = false; pageStatus = "Anmelden, danach „I/O-Testseite öffnen“ wählen." } }
+        guard webView === self.webView else { return }
+        let connection = connectionID, page = pageID
+        pageTask?.cancel()
+        pageTask = Task { [weak self] in
+            guard let self else { return }
+            do {
+                let info: ControllerRead = try await self.run(["operation": "info"])
+                guard self.isCurrent(connection, page) else { return }
+                self.ready = true; self.loading = false; self.credentials = nil
+                self.controllerProduct = info.product
+                self.pageStatus = "Angemeldet. I/O-Testseite bereit."
+                self.deadline?.cancel()
+            } catch is CancellationError { return }
+            catch {
+                guard self.isCurrent(connection, page) else { return }
+                await self.authenticateIfNeeded(connection: connection, page: page, readError: error)
+            }
+        }
     }
-    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) { failed(error) }
-    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) { failed(error) }
-    func webViewWebContentProcessDidTerminate(_ webView: WKWebView) { failed(AppFailure("Controller-Seite neu öffnen.")) }
-    private func failed(_ error: Error) { loading = false; ready = false; pageStatus = error.localizedDescription }
+
+    private func isCurrent(_ connection: UUID, _ page: UUID) -> Bool {
+        connectionID == connection && pageID == page && !Task.isCancelled
+    }
+
+    private func authenticateIfNeeded(connection: UUID, page: UUID, readError: Error) async {
+        do {
+            let state: ControllerLoginReply = try await evaluate(loginScript, request: ["operation": "inspect"])
+            guard isCurrent(connection, page) else { return }
+            if state.state == "error" { throw AppFailure(state.message ?? "Controller-Anmeldung konnte nicht geprüft werden.") }
+            if state.state == "actionRequired" { stopWithMessage(Self.controllerActionRequired); return }
+            if state.state == "authenticated" {
+                guard !ioRedirectAttempted else { stopWithMessage(readError.localizedDescription); return }
+                ioRedirectAttempted = true; loadIOPage(); return
+            }
+            guard state.state == "login" else { stopWithMessage(readError.localizedDescription); return }
+            guard !loginAttempted else {
+                stopWithMessage("Anmeldung nicht bestätigt. Zugangsdaten und Controller-Berechtigungen prüfen."); return
+            }
+            guard let credentials else {
+                stopWithMessage("Bitte die Zugangsdaten für diese Station speichern und verbinden."); return
+            }
+            // One request per explicit connection. Failure/timeouts never trigger retries.
+            loginAttempted = true
+            pageStatus = "Mit gespeicherten Zugangsdaten anmelden …"
+            let result: ControllerLoginReply = try await evaluate(loginScript, request: [
+                "operation": "authenticate", "username": credentials.username, "password": credentials.password
+            ])
+            guard isCurrent(connection, page) else { return }
+            self.credentials = nil
+            if result.state == "error" { throw AppFailure(result.message ?? "Controller-Anmeldung fehlgeschlagen.") }
+            guard result.state == "authenticated" else {
+                stopWithMessage(Self.controllerActionRequired); return
+            }
+            ioRedirectAttempted = true
+            pageStatus = "Anmeldung bestätigt. I/O-Testseite wird geladen …"
+            loadIOPage()
+        } catch is CancellationError { return }
+        catch {
+            guard isCurrent(connection, page) else { return }
+            stopWithMessage(error.localizedDescription)
+        }
+    }
+
+    private static let controllerActionRequired = "Der Controller verlangt eine Passwortänderung oder Bestätigung. Bitte diese zuerst in seiner Weboberfläche abschließen."
+
+    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        if webView === self.webView { failed(error) }
+    }
+    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+        if webView === self.webView { failed(error) }
+    }
+    func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+        if webView === self.webView { stopWithMessage("Die Controller-Verbindung wurde beendet. Bitte erneut verbinden.") }
+    }
+    private func failed(_ error: Error) {
+        if (error as NSError).code == NSURLErrorCancelled { return }
+        stopWithMessage(error.localizedDescription)
+    }
+    private func stopWithMessage(_ message: String) {
+        pageID = UUID()
+        webView.navigationDelegate = nil
+        webView.stopLoading()
+        loading = false; ready = false; identityConfirmed = false; credentials = nil
+        pageTask?.cancel(); deadline?.cancel(); pageStatus = message
+    }
+
     func run<T: Decodable>(_ request: [String: Any]) async throws -> T {
-        guard let station, !script.isEmpty else { throw AppFailure("Zuerst Controller verbinden.") }
+        try await evaluate(script, request: request)
+    }
+    private func evaluate<T: Decodable>(_ source: String, request: [String: Any]) async throws -> T {
+        guard let station, !source.isEmpty else { throw AppFailure("Controller-Verbindung oder Anmelderessource fehlt.") }
+        let connection = connectionID, page = pageID
         var args = request; args["origin"] = station.origin
-        let value = try await webView.callAsyncJavaScript(script, arguments: ["request": args], in: nil, contentWorld: .page)
+        let value = try await webView.callAsyncJavaScript(source, arguments: ["request": args], in: nil, contentWorld: .page)
+        guard isCurrent(connection, page) else { throw CancellationError() }
         guard let text = value as? String else { throw AppFailure("Keine verwertbare Controller-Antwort.") }
         return try JSON.decode(T.self, text)
     }
@@ -86,10 +225,4 @@ import SwiftUI
         guard result.verified, result.prop == prop else { throw AppFailure("Speichern nicht bestätigt. Zuerst neu lesen.") }
         return result.point
     }
-}
-
-struct ControllerWebView: UIViewRepresentable {
-    let session: LoytecSession
-    func makeUIView(context: Context) -> WKWebView { session.webView }
-    func updateUIView(_ uiView: WKWebView, context: Context) {}
 }

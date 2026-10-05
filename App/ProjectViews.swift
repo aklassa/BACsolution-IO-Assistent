@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 @MainActor struct ProjectsView: View {
     @EnvironmentObject var store: ProjectStore
@@ -52,6 +53,8 @@ import SwiftUI
     @State private var stationName = ""
     @State private var origin = "http://"
     @State private var identity = ""
+    @State private var username = ""
+    @State private var password = ""
     @State private var error = ""
     var body: some View {
         NavigationStack {
@@ -63,6 +66,7 @@ import SwiftUI
                     TextField("Seriennummer / eindeutige Stationskennung", text: $identity).textInputAutocapitalization(.never).autocorrectionDisabled()
                     Text("Die Stationskennung verbindet Prüfergebnisse über mehrere Geräte hinweg. Die Adresse darf keine Zugangsdaten enthalten.").font(.caption)
                 }
+                ControllerCredentialsFields(username: $username, password: $password)
                 if !error.isEmpty { Text(error).foregroundStyle(.red) }
             }
             .navigationTitle(existing == nil ? "Neues Projekt" : "Neue Station")
@@ -77,13 +81,40 @@ import SwiftUI
                             guard !name.isEmpty, !label.isEmpty, existing != nil || !title.isEmpty else { throw AppFailure("Bitte alle Felder ausfüllen.") }
                             var project = existing ?? Project(name: title)
                             guard !project.stations.contains(where: { $0.identity.caseInsensitiveCompare(label) == .orderedSame }) else { throw AppFailure("Diese Stationskennung ist im Projekt bereits vorhanden.") }
-                            project.stations.append(Station(name: name, origin: try Station.checkedOrigin(origin), identity: label))
-                            try store.saveProject(project); dismiss()
+                            let station = Station(name: name, origin: try Station.checkedOrigin(origin), identity: label)
+                            let credentials = try ControllerCredentials(username: username, password: password).validated()
+                            try ControllerCredentialStore.save(credentials, for: station)
+                            project.stations.append(station)
+                            do { try store.saveProject(project) }
+                            catch { try? ControllerCredentialStore.remove(for: station); throw error }
+                            password = ""; dismiss()
                         } catch { self.error = error.localizedDescription }
                     }.disabled(model.locked)
                 }
             }
+            .onAppear { model.speech.stop(message: "Sprachbedienung während der Zugangseingabe pausiert.") }
+            .onDisappear { password = "" }
         }
+    }
+}
+
+struct ControllerCredentialsFields: View {
+    @Binding var username: String
+    @Binding var password: String
+    var body: some View {
+        Section {
+            TextField("Account / Benutzername", text: $username)
+                .textContentType(.username).textInputAutocapitalization(.never).autocorrectionDisabled()
+                .accessibilityIdentifier("controllerUsername")
+            SecureField("Controller-Passwort", text: $password)
+                .textContentType(.password).textInputAutocapitalization(.never).autocorrectionDisabled()
+                .accessibilityIdentifier("controllerPassword")
+        } header: {
+            Text("Controller-Zugangsdaten")
+        } footer: {
+            Text("Für diese Station sicher im Schlüsselbund dieses iPhones gespeichert. Beim nächsten Verbinden automatisch verwendet.")
+        }
+        .privacySensitive()
     }
 }
 
@@ -91,27 +122,72 @@ import SwiftUI
     @EnvironmentObject var model: AssistantModel
     @EnvironmentObject var session: LoytecSession
     @Environment(\.dismiss) var dismiss
+    @State private var username = ""
+    @State private var password = ""
+    @State private var editingCredentials = false
+    @State private var error = ""
     var body: some View {
         NavigationStack {
-            VStack(spacing: 10) {
-                VStack(alignment: .leading, spacing: 5) {
+            Form {
+                Section("Station") {
                     Text(session.station?.name ?? "Controller").font(.headline)
                     Text(session.station?.origin ?? "").font(.caption).textSelection(.enabled)
                     Text("Zu prüfen: \(session.station?.identity ?? "")").font(.subheadline)
-                    Text(session.pageStatus).font(.caption).foregroundStyle(.secondary)
-                }.frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal)
-                ControllerWebView(session: session)
-                HStack {
-                    Button("I/O-Testseite öffnen") { session.openIOPage() }.buttonStyle(.bordered)
-                    Button("Identität bestätigt · Lesen") {
-                        session.confirmIdentity(); dismiss()
-                        Task { await model.reload() }
-                    }.buttonStyle(.borderedProminent).disabled(!session.ready || model.locked)
-                }.font(.caption).padding()
+                    if !session.controllerProduct.isEmpty { Text("Controller: \(session.controllerProduct)") }
+                }
+                Section("Verbindung") {
+                    if session.loading { ProgressView("Controller verbinden …") }
+                    Text(session.pageStatus).font(.callout)
+                    if !error.isEmpty { Text(error).foregroundStyle(.red) }
+                }
+                if editingCredentials || (!session.loading && !session.ready) {
+                    ControllerCredentialsFields(username: $username, password: $password)
+                    Section {
+                        Button("Speichern und verbinden", systemImage: "network") { saveAndConnect() }
+                            .disabled(session.loading || model.locked)
+                            .accessibilityIdentifier("saveControllerLogin")
+                    }
+                } else {
+                    Section {
+                        Button("Zugangsdaten ändern", systemImage: "key.fill") { editingCredentials = true }
+                            .disabled(session.loading || model.locked)
+                    }
+                }
+                if session.ready {
+                    Section {
+                        Text("Stationskennung am tatsächlichen Controller vergleichen, dann die Datenpunkte lesen.")
+                        Button("Identität bestätigt · Lesen") {
+                            session.confirmIdentity(); dismiss()
+                            Task { await model.reload() }
+                        }.buttonStyle(.borderedProminent).disabled(model.locked)
+                    }
+                }
             }
-            .navigationTitle("Controller anmelden").navigationBarTitleDisplayMode(.inline)
+            .navigationTitle("Controller verbinden").navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Schließen") { dismiss() } } }
             .interactiveDismissDisabled(model.busy)
+            .onAppear {
+                model.speech.stop(message: "Sprachbedienung während der Anmeldung pausiert.")
+                guard let station = session.station else { return }
+                do {
+                    if let saved = try ControllerCredentialStore.read(for: station) {
+                        username = saved.username; password = saved.password
+                    } else { editingCredentials = true }
+                } catch { self.error = error.localizedDescription; editingCredentials = true }
+            }
+            .onChange(of: session.ready) { ready in if ready { editingCredentials = false; error = "" } }
+            .onDisappear { password = ""; session.cancelLogin() }
         }
+    }
+
+    private func saveAndConnect() {
+        guard let station = session.station, !session.loading, !model.locked else { return }
+        do {
+            let credentials = try ControllerCredentials(username: username, password: password).validated()
+            try ControllerCredentialStore.save(credentials, for: station)
+            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+            error = ""; editingCredentials = false
+            session.connect(station)
+        } catch { self.error = error.localizedDescription }
     }
 }

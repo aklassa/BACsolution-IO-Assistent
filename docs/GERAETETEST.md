@@ -5,7 +5,15 @@ Diese Liste beschreibt ausstehende Abnahmen, keine bereits bestandenen Hardwaret
 | Prüfung | Erwartetes Ergebnis |
 |---|---|
 | Projekt anlegen, App beenden und neu öffnen | Projekt und Stationskennung bleiben erhalten |
-| LOYTEC 8.4.20 anmelden | Original-Anmeldung funktioniert; fremde Navigation wird nicht geöffnet |
+| Account und Passwort bei neuem Projekt / weiterer Station eingeben | Native Felder reagieren ohne Absturz; Zugangsdaten werden pro Station gespeichert |
+| Bestehende Station aus 0.1.1 öffnen | Daten bleiben erhalten; Zugangsdaten können einmalig ergänzt werden |
+| LOYTEC 8.4.20 anmelden | Automatischer Login lädt die I/O-Testseite; keine Eingabe in der eingebetteten Website nötig |
+| App vollständig beenden, öffnen und Station erneut verbinden | Gespeicherte Zugangsdaten werden wiederverwendet |
+| Zugangsdaten ändern | Neuer Account / neues Passwort werden gespeichert; frische Controller-Sitzung wird aufgebaut |
+| Absichtlich falsches Passwort an einem freigegebenen Testkonto | Verständliche Ablehnung; pro Verbindungsauftrag nur ein Versuch, keine automatische Wiederholung |
+| Andere Station bzw. geänderte Controller-Adresse, Protokoll oder Port | Alte Zugangsdaten und Sitzungscookies werden nicht übernommen |
+| Netzwerkabbruch während Anmeldung, anschließend Dialog schließen | Wartestatus endet; keine verspätete Erfolgsmeldung und keine automatische Wiederholung |
+| Projekt-/Abgleichdaten prüfen | Account, Passwort und Sitzungstoken sind nicht enthalten |
 | Falsche oder abgelaufene Anmeldung | Kein gelesener Wert wird als aktuell ausgegeben |
 | Stationskennung bestätigen | Auswahl der realen Station bleibt bewusst nachvollziehbar |
 | Bekannten Eingang und Ausgang lesen | Adresse einschließlich Objekttyp stimmt; gleicher Objektindex verwechselt keine Kanäle |
