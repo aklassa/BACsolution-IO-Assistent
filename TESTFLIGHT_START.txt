@@ -1,0 +1,59 @@
+BACsolution I/O-Assistent – Testversion 0.1.1
+Stand: 5. Oktober 2026
+
+Dieses Paket enthält den Quellcode für Codemagic. Es ist noch keine
+installierbare IPA und wurde noch nicht zu TestFlight hochgeladen.
+
+Kopierfertige Windows-PowerShell-Befehle und die Codemagic-Einrichtung
+stehen in CODEMAGIC_BEFEHLE.txt. Du übernimmst Upload und Buildstart selbst.
+
+1. ZIP entpacken. Den INHALT des Projektordners in ein eigenes privates
+   GitHub-Repository für den I/O-Assistenten hochladen. codemagic.yaml muss
+   direkt im Hauptverzeichnis des Repositorys liegen, nicht in einem
+   zusätzlichen Unterordner. Die ZIP-Datei allein reicht nicht aus.
+
+2. Das Repository in Codemagic als natives iOS-Projekt mit YAML verbinden.
+   Zuerst den Workflow ios-check starten (Name: BACsolution IO - iPhone
+   Build pruefen). Dieser Schritt braucht noch keine Apple-Signierung.
+
+3. Für TestFlight ist ein aktives Apple-Developer-Konto erforderlich.
+   App-ID und App-Store-Connect-App für diese Bundle-ID anlegen:
+   de.bacsolution.io.assistent.dev
+   Die Apple-Integration in Codemagic muss BACsolution Apple heißen.
+   Apple-Distribution-Zertifikat und App-Store-Profil passend zur Bundle-ID
+   hinterlegen. Details: docs/CODEMAGIC_TESTFLIGHT.md.
+
+4. Nach erfolgreichem ios-check den Workflow ios-testflight-internal
+   starten (Name: BACsolution IO - internes TestFlight).
+   Er erstellt und signiert die IPA und lädt sie zu App Store Connect hoch.
+   Version: 0.1.1. Die Buildnummer vergibt Codemagic automatisch.
+
+5. Nach Apples Verarbeitung den Build in App Store Connect der eigenen
+   internen Testgruppe zuweisen. Auf dem iPhone über TestFlight installieren.
+   Der Workflow ist auf interne Tests begrenzt; keine App-Store-Einreichung.
+
+Enthaltene Funktionen
+- Projekte und Stationen; LOYTEC-I/O-Testseite, Ziel-Firmware 8.4.20.
+- Datenpunkte nach Namen/Beschreibung suchen und Werte vorlesen.
+- Deutsche Sprachbefehle und Sprachausgabe über Kopfhörer.
+- 58 vorbelegte, global ergänzbare Begriffe mit einzelnen Alias-Zeilen.
+- Prüfstatus und Kommentare als Entwurf; ausdrückliches Speichern am
+  Controller mit anschließendem Zurücklesen.
+- Lokale Speicherung und optionaler Abgleich mit einem eigenen Server.
+- Version und Buildnummer in der App unter Abgleich → App.
+
+Für den ersten Test
+- iPhone ab iOS 17 mit Netzwerkzugang zum Controller; App geöffnet lassen.
+- Prüfernamen unter Abgleich speichern, Projekt/Station anlegen, anmelden.
+- Zuerst einen bekannten Eingang lesen; danach Sprachsuche und Kommentar
+  testen. Weitere Fälle stehen in docs/GERAETETEST.md.
+
+Bekannte Grenzen
+- Ausgänge werden gelesen, aber nicht aktiv angesteuert.
+- Headset-Sitzung pausiert beim Sperren oder App-Wechsel.
+- Zentraler Server ist nicht bereitgestellt; die bestehende PC-Erweiterung
+  ist noch nicht mit ihm verbunden.
+- Die erste Kompilierung mit Xcode sowie iPhone-/Headset-Tests stehen aus.
+
+Bei einem Codemagic-Fehler das Build-Log und die Workflow-ID bereitstellen.
+API-Schlüssel und Zertifikate ausschließlich in Codemagic hinterlegen.

@@ -1,0 +1,180 @@
+BACsolution I/O-Assistent 0.1.1 - Codemagic und TestFlight
+Stand: 5. Oktober 2026
+
+Du fuehrst die folgenden Schritte selbst aus. Es wurde noch kein Remote-Build
+gestartet und keine IPA zu Apple hochgeladen.
+
+1. PROJEKT ENTPACKEN
+
+BACsolution_IO_iPhone_Arbeitsstand.zip in einen neuen Ordner entpacken.
+Im darin enthaltenen Projektordner muessen codemagic.yaml, package.json,
+App, Shared, Resources, scripts und BACsolution.xcodeproj direkt liegen.
+Die einzeln gelieferte codemagic.yaml ist identisch mit der Datei im ZIP.
+Die YAML-Datei allein enthaelt nicht die App: der komplette Quellcode wird
+benoetigt. Unter Windows musst du fuer den Upload weder Xcode noch Node oder
+Python installieren. Die Build-Werkzeuge laufen auf dem Codemagic-Mac.
+
+2. NEUES PRIVATES GITHUB-REPOSITORY ANLEGEN
+
+Auf GitHub ein leeres PRIVATES Repository fuer dieses Projekt anlegen,
+zum Beispiel BACsolution-IO-Assistent. Ohne README, Lizenz oder .gitignore
+initialisieren, da das Paket diese Projektdateien bereits enthaelt.
+Das Repository BACtab-M-BUS-Doc gehoert zu einer anderen App.
+Die HTTPS-Repository-URL kopieren. Du wirst gleich danach gefragt.
+
+3. POWERSHELL-BEFEHLE FUER DEN ERSTEN UPLOAD
+
+Voraussetzung: Git fuer Windows ist installiert.
+Windows PowerShell oeffnen und den folgenden Block vollstaendig einfuegen.
+Die Rueckfragen betreffen deinen lokalen Ordner, dein neues Repository
+sowie den Namen und die E-Mail-Adresse fuer den Git-Commit.
+Der Block ist fuer einen frisch entpackten Projektordner bestimmt.
+
+----- BEGINN POWERSHELL -----
+$ErrorActionPreference = 'Stop'
+Get-Command git -ErrorAction Stop | Out-Null
+
+$ioProjectPath = (Read-Host 'Pfad zum entpackten Projektordner mit codemagic.yaml').Trim().Trim('"')
+Set-Location -LiteralPath $ioProjectPath
+if (!(Test-Path -LiteralPath '.\codemagic.yaml') -or !(Test-Path -LiteralPath '.\BACsolution.xcodeproj')) {
+    throw 'Bitte den Projektordner waehlen, in dem codemagic.yaml und BACsolution.xcodeproj direkt liegen.'
+}
+if (Test-Path -LiteralPath '.git') {
+    throw 'Dieser Ordner hat bereits ein Git-Repository. Fuer diesen Erstupload einen frisch entpackten Ordner verwenden.'
+}
+
+$ioRepoUrl = (Read-Host 'HTTPS-URL deines neuen leeren GitHub-Repositorys').Trim()
+if ($ioRepoUrl -notmatch '^https://github\.com/[^/?#]+/[^/?#]+/?$') {
+    throw 'Eine HTTPS-Repository-URL von github.com ohne Zugangsdaten eingeben.'
+}
+$ioAuthor = (Read-Host 'Dein Name fuer den Git-Commit').Trim()
+$ioEmail = (Read-Host 'Deine Git-Commit-E-Mail-Adresse').Trim()
+if (!$ioAuthor -or !$ioEmail) { throw 'Name und Commit-E-Mail duerfen nicht leer sein.' }
+
+function Invoke-IoGit {
+    & git @args
+    if ($LASTEXITCODE -ne 0) { throw 'Git hat einen Fehler gemeldet. Den Fehler zuerst beheben.' }
+}
+
+Invoke-IoGit init -b main
+Invoke-IoGit config --local user.name $ioAuthor
+Invoke-IoGit config --local user.email $ioEmail
+Invoke-IoGit add -- App Shared Resources SyncServer Tests scripts BACsolution.xcodeproj .github .gitignore README.md TESTFLIGHT_START.txt CODEMAGIC_BEFEHLE.txt codemagic.yaml package.json docs
+Invoke-IoGit commit -m 'Prepare BACsolution IO 0.1.1 for internal TestFlight'
+Invoke-IoGit remote add origin $ioRepoUrl
+Invoke-IoGit push -u origin main
+----- ENDE POWERSHELL -----
+
+Wenn Git eine Anmeldung verlangt, mit deinem GitHub-Konto anmelden.
+Bei einem Fehler bricht der Block ab. Ein bereits befuelltes Remote-Repository
+nicht mit einem erzwungenen Push ueberschreiben; dann zuerst den Stand klaeren.
+Falls beim Commit der Name oder die E-Mail falsch war, diesen Schritt vor dem
+Push korrigieren. Die Angaben werden nur fuer dieses lokale Projekt gesetzt.
+
+Ohne Git-Kommandozeile: In GitHub den Inhalt des entpackten Projektordners
+ueber Add file > Upload files hochladen, dabei die Unterordner mitnehmen.
+Pruefen, dass codemagic.yaml direkt auf der Startseite des Repositorys liegt.
+Nicht nur die ZIP-Datei hochladen.
+
+4. CODEMAGIC EINRICHTEN
+
+In Codemagic:
+- Add application > GitHub > Repository auswaehlen.
+- Bei der GitHub-App-Integration kann der Zugriff auf das I/O-Repository
+  begrenzt werden (Only select repositories).
+- Projekttyp: natives iOS / iOS App. YAML-Konfiguration verwenden.
+- Branch: main.
+- Start new build > ios-check.
+
+Der Workflow ios-check braucht keine Apple-Signierungsdateien. Er bereitet
+Ressourcen vor, fuehrt die Logiktests aus und kompiliert die App fuer den
+iOS-Simulator. Bei einem Fehler liegt das Protokoll als ios-check.log vor.
+
+Die Kommandos stehen bereits in codemagic.yaml. Du musst sie nicht nochmals
+in einen separaten Script-Editor in Codemagic einfuegen.
+
+5. APPLE FUER TESTFLIGHT EINRICHTEN
+
+Voraussetzung: aktiver Apple-Developer-Zugang.
+
+Diese Werte muessen zusammenpassen:
+App / Scheme:                  BACsolution
+Version:                       0.1.1
+Bundle-ID:                     de.bacsolution.io.assistent.dev
+Apple-Integrationsname:         BACsolution Apple
+Signierung:                    Apple Distribution + App Store Profil
+TestFlight-Workflow-ID:         ios-testflight-internal
+
+In Apple Developer eine explizite App-ID mit der Bundle-ID anlegen.
+In App Store Connect eine iOS-App mit derselben Bundle-ID anlegen.
+In Codemagic unter Team settings > Team integrations > Developer Portal
+den App-Store-Connect-Zugang mit dem Namen BACsolution Apple hinterlegen.
+Ein Team-API-Schluessel benoetigt fuer diese Upload-Konfiguration App Manager.
+Die .p8-Datei, Key ID und Issuer ID dort eintragen.
+Unter Code signing identities das passende Apple-Distribution-Zertifikat
+und App-Store-Provisioning-Profil fuer die Bundle-ID hinterlegen/abrufen.
+Ein Entwicklungsprofil oder Ad-hoc-Profil ist hier nicht das richtige Profil.
+
+Wenn deine Integration anders heisst, genau diese Zeile in codemagic.yaml
+anpassen und die Aenderung ins Repository uebertragen:
+  app_store_connect: BACsolution Apple
+
+Wenn du eine andere Bundle-ID verwenden willst, in codemagic.yaml UND
+scripts/xcode_project.py denselben neuen Bezeichner setzen. Das Xcode-Projekt
+wird beim Build aus diesem Skript neu erstellt.
+
+6. TESTFLIGHT-BUILD STARTEN
+
+Nach erfolgreichem ios-check in Codemagic:
+Start new build > Branch main > ios-testflight-internal > Start build.
+
+Dieser Workflow verwendet automatisch:
+
+----- KOMMANDOS AUF DEM CODEMAGIC-MAC (NICHT UNTER WINDOWS) -----
+set -euo pipefail
+npm run prepare
+npm test
+python3 scripts/check_project.py
+python3 scripts/ci_build_number.py
+xcode-project use-profiles --custom-export-options='{"testFlightInternalTestingOnly": true}'
+xcode-project build-ipa --project BACsolution.xcodeproj --scheme BACsolution
+----- ENDE MAC-KOMMANDOS -----
+
+Das Publishing in der YAML uebernimmt danach den IPA-Upload zu Apple.
+Die Versionsnummer bleibt 0.1.1; PROJECT_BUILD_NUMBER setzt pro Codemagic-Lauf
+eine neue Buildnummer. BAC_IO_BUILD_OFFSET bleibt bei einem neuen Projekt 0.
+Bei einem Umzug einer bestehenden Apple-App auf ein neues Codemagic-Projekt
+den Offset so waehlen, dass die neue Nummer ueber den bisherigen Builds liegt.
+
+submit_to_testflight: false verhindert hier die Einreichung zur externen
+Beta-Review, nicht den IPA-Upload. testFlightInternalTestingOnly: true
+beschraenkt diesen Build auf interne Tests.
+submit_to_app_store: false verhindert eine App-Store-Einreichung.
+Es gibt keine automatischen Builds bei jedem Git-Push.
+
+7. AUF DEM IPHONE INSTALLIEREN
+
+Nach der Verarbeitung durch Apple:
+App Store Connect > deine App > TestFlight > Internal Testing.
+Eigene interne Gruppe anlegen/auswaehlen, deinen berechtigten
+App-Store-Connect-Benutzer hinzufuegen und den Build zuordnen.
+Eventuell angeforderte Export-Compliance-Angaben fuer die tatsaechliche App
+beantworten. Danach auf dem iPhone mit TestFlight installieren.
+
+Version und Build findest du in der App unter Abgleich > App.
+Fuer den Controller-Test muss das iPhone den Controller im Anlagennetz
+erreichen. Einen zentralen Server brauchst du fuer den ersten lokalen Test
+noch nicht. Die Verbindung zur bestehenden PC-Erweiterung ist noch offen.
+
+PRUEFSTAND
+
+61 mitgelieferte Logiktests bestanden; Projektstruktur und Swift-Syntax
+geprueft. Ein Xcode-Build, die Signierung und der Test auf dem iPhone stehen
+noch aus. Die PowerShell-Upload-Befehle wurden hier nicht ausgefuehrt.
+
+Offizielle Dokumentation:
+https://docs.codemagic.io/getting-started/adding-apps/
+https://docs.codemagic.io/yaml-quick-start/building-a-native-ios-app/
+https://docs.codemagic.io/yaml-publishing/app-store-connect/
+
+Die vollstaendige Projektanleitung liegt in docs/CODEMAGIC_TESTFLIGHT.md.

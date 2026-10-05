@@ -1,0 +1,11 @@
+{
+  "name": "bacsolution-io-ios-workspace",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "prepare": "node scripts/bundle.mjs && python3 scripts/xcode_project.py",
+    "test": "node --test Tests/*.test.mjs",
+    "sync:dev": "node SyncServer/server.mjs"
+  },
+  "engines": { "node": ">=22" }
+}

@@ -1,0 +1,25 @@
+name: iPhone-Arbeitsstand pruefen (kein Release)
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Gemeinsame Logik pruefen
+        run: |
+          npm run prepare
+          npm test
+          python3 scripts/check_project.py
+      - name: Unsigned Simulator-Build
+        run: >-
+          xcodebuild -project BACsolution.xcodeproj -scheme BACsolution
+          -destination 'generic/platform=iOS Simulator'
+          -derivedDataPath build CODE_SIGNING_ALLOWED=NO build
+      # No archive upload, signing, TestFlight or App Store step.

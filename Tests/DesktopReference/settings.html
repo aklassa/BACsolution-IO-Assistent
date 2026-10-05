@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Begriffe · BACsolution I/O-Assistent</title><link rel="stylesheet" href="styles.css"></head>
+<body>
+<header><div><div class="brand">BAC<span>solution</span></div><h1>Einstellungen · Globale Begriffsliste <small>0.4.0</small></h1></div><span class="connection">Alle Projekte und Controller</span></header>
+<main class="settings-page">
+  <div id="settingsMessage" class="message" role="status">Begriffe werden geladen …</div>
+  <p class="muted">Hier trägst du Begriffe direkt ein. Sie gelten sofort für alle Controller, Projekte und CSV-Listen in diesem Browserprofil. Auch per Sprache bestätigte Begriffe erscheinen hier. Für einen anderen Rechner oder Browser kannst du die Liste exportieren und importieren.</p>
+  <p class="muted small">Die Vorgaben enthalten gebräuchliche Begriffe aus Lüftung, Heizung, Kälte und Regelungstechnik. Mehrdeutige Kürzel wie HK, KVS oder RM kannst du passend zu deinem Datenpunktschlüssel selbst definieren.</p>
+  <div class="settings-layout">
+    <section class="settings-card" aria-label="Begriffsliste">
+      <div class="settings-toolbar"><h2>Begriffe <span id="termCount" class="muted"></span></h2><button id="reloadTerms" type="button">Neu laden</button></div>
+      <label>Liste durchsuchen<input id="termSearch" type="search" placeholder="Begriff, Bedeutung oder weitere Bezeichnung"></label>
+      <label class="checkbox"><input id="showRemoved" type="checkbox">Entfernte Einträge anzeigen</label>
+      <div class="settings-table"><table><thead><tr><th>Begriff</th><th>Bedeutung</th><th>Weitere Bezeichnungen</th><th>Herkunft</th><th>Bearbeitung</th></tr></thead><tbody id="termRows"></tbody></table></div>
+      <p id="termsEmpty" class="muted" hidden>Keine passenden Einträge.</p>
+      <div class="settings-toolbar"><button id="exportTerms" type="button">Liste exportieren</button><label class="file-button">Liste importieren<input id="importFile" type="file" accept=".json,application/json"></label></div>
+      <div id="importPreview" class="lookup-results" hidden><p id="importSummary"></p><button id="applyImport" type="button">Import übernehmen</button><button id="cancelImport" type="button" class="subtle">Verwerfen</button></div>
+      <p class="muted small">Beim Import werden abweichende Bedeutungen zur Auswahl gestellt. Bestehende Controllerdaten werden durch die Begriffsliste nicht geändert.</p>
+      <button id="restoreTerms" type="button" class="subtle">Standardbegriffe wiederherstellen</button>
+    </section>
+    <section class="settings-card" aria-label="Begriff bearbeiten">
+      <h2 id="editorTitle">Begriff hinzufügen</h2>
+      <form id="termForm">
+        <label>Begriff / Kürzel<input id="termShort" type="text" maxlength="40" placeholder="RT" required></label>
+        <label>Bedeutung<input id="termMeaning" type="text" maxlength="80" placeholder="Raumtemperatur" required></label>
+        <fieldset class="alias-editor">
+          <legend>Weitere Bezeichnungen</legend>
+          <table><thead><tr><th scope="col">Bezeichnung</th><th scope="col">Aktion</th></tr></thead><tbody id="termAliasRows"></tbody></table>
+          <button id="addAlias" type="button">+ Bezeichnung hinzufügen</button>
+          <p class="muted small">Eine Bezeichnung pro Zeile, bis zu 30 Einträge. Leere Zeilen werden beim Speichern ausgelassen.</p>
+        </fieldset>
+        <p class="muted small">Die Bedeutung dient auch zum Vorlesen.</p>
+        <div class="save-actions"><button id="termSave" type="submit" class="primary">Global speichern</button><button id="cancelEdit" type="button" class="subtle">Eingabe leeren</button></div>
+      </form>
+      <p class="muted">Ein Klick auf „Global speichern“ übernimmt deinen Eintrag direkt. Dafür ist kein Lernvorgang oder Sprachdialog nötig.</p>
+    </section>
+  </div>
+  <section id="conflictsPanel" class="settings-card conflicts-panel" hidden aria-label="Bedeutungskonflikte"><h2>Bedeutung auswählen</h2><p class="muted">Diese Kürzel wurden mit unterschiedlichen Bedeutungen gefunden. Sie werden erst nach deiner Auswahl global verwendet. Alternativ kannst du eine neue eindeutige Definition in der Liste speichern.</p><div id="termConflicts"></div></section>
+  <footer><span>Globale Begriffe im Browserprofil · Datenpunktzuordnungen bleiben beim jeweiligen Controller</span><span>BACsolution</span></footer>
+</main><script type="module" src="settings.js"></script></body></html>

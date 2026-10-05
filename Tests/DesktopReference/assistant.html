@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>BACsolution I/O-Assistent</title><link rel="stylesheet" href="styles.css"></head>
+<body>
+<header><div><div class="brand">BAC<span>solution</span></div><h1>I/O-Assistent <small>0.4.0</small></h1></div><div class="header-right"><a class="settings-link" href="settings.html" target="_blank" rel="noopener">Einstellungen</a><span id="connection" class="connection">Nicht verbunden</span><button id="connect">Controller lesen</button></div></header>
+<main>
+  <div id="message" class="message" role="status">Öffne die LOYTEC-I/O-Testseite und starte den Assistenten über das Erweiterungssymbol.</div>
+  <section class="context"><div><span class="eyebrow">STATION</span><strong id="station">Keine Station ausgewählt</strong><span id="received">Noch keine Antwort</span></div><div class="stats"><span><b id="count">0</b> Prüfpunkte</span><span><b id="okCount">0</b> OK</span><span><b id="badCount">0</b> Nicht OK</span></div></section>
+  <div class="workspace">
+  <section class="list-panel" aria-label="Prüfliste">
+    <div class="filters"><label>Bus<select id="bus"><option value="">Bitte verbinden</option></select></label><label>Gerät<select id="device"><option value="">Alle Geräte</option></select></label></div>
+    <div class="filters"><label class="grow">Suchen<input id="search" type="search" placeholder="Name oder Klemme"></label><label>Prüfumfang<select id="filter"><option value="all">Alle I/Os</option><option value="open">Ohne abgeschlossene Prüfung</option><option value="bad">Nicht OK</option><option value="inputs">Eingänge</option></select></label></div>
+    <label class="checkbox"><input id="hideReserve" type="checkbox">Als „Reserve“ bezeichnete Anschlüsse ausblenden</label>
+    <div class="table-scroll"><table><thead><tr><th>Klemme</th><th>Prüfpunkt</th><th>Wert</th><th>Prüfergebnis</th></tr></thead><tbody id="rows"></tbody></table><div id="empty" class="empty">Die Prüfliste erscheint nach dem Lesen des Controllers oder dem Öffnen eines CSV-Exports.</div></div>
+    <div class="list-footer"><label class="file-button">CSV ansehen<input id="csvFile" type="file" accept=".csv,text/csv"></label><button id="exportHistory" class="subtle">Sitzungsprotokoll exportieren</button></div>
+  </section>
+  <section class="detail-panel" aria-label="Ausgewählter Prüfpunkt">
+    <div class="detail-head"><span class="eyebrow" id="pointIdentity">PRÜFPUNKT AUSWÄHLEN</span><div class="navigation"><button id="previous" aria-label="Vorheriger Prüfpunkt">←</button><button id="next" aria-label="Nächster Prüfpunkt">→</button></div></div>
+    <h2 id="pointName">Bereit für die erste Prüfung</h2><p id="pointDescription" class="muted"></p>
+    <div class="reading"><span id="value">—</span><span id="unit"></span></div><div class="reading-meta"><span id="mode">Kein aktueller Messwert</span><span id="type"></span></div>
+    <div class="speech-actions"><button id="read" class="primary">Wert vorlesen</button><label class="checkbox"><input id="watch" type="checkbox">Änderungen ansagen</label></div>
+    <div class="watch-options"><label>Änderungsschwelle (analog)<input id="delta" type="number" value="0.1" min="0" step="0.1"></label><span class="muted">In der angezeigten Einheit. Ansagen frühestens alle 5 Sekunden.</span></div>
+    <div class="separator"></div>
+    <div class="saved"><span id="savedState">Kein Prüfergebnis ausgewählt</span><span id="savedDate"></span></div>
+    <label>Neues Prüfergebnis<select id="result"><option value="">Ergebnis unverändert</option value="1">Nicht getestet</option><option value="2">OK</option><option value="3">Nicht OK</option></select></label>
+    <label>Testkommentar<textarea id="comment" rows="4" maxlength="2000" placeholder="Zum Beispiel: Referenzmessung abweichend, Anschluss prüfen."></textarea></label>
+    <div class="save-actions"><button id="save" class="primary">Auf Controller speichern</button><button id="discard" class="subtle">Entwurf verwerfen</button></div><p id="draftState" class="muted">Testergebnis und Kommentar werden nach dem Speichern zurückgelesen.</p>
+    <div class="separator"></div>
+    <div class="voice-bar"><button id="microphone">Sprachbefehle starten</button><button id="quiet" class="subtle">Ansage stoppen</button></div>
+    <p class="muted small">Sprachbefehle sind experimentell. Die Browser-Spracherkennung kann Audio an den Browseranbieter übertragen und Internet benötigen. Sie startet erst mit der Taste oben.</p>
+    <p id="transcript" class="transcript" aria-live="polite">Noch kein Sprachbefehl.</p>
+    <form id="lookupForm" class="lookup-form"><label for="lookupQuery">Frage oder Sprachbefehl eingeben</label><div><input id="lookupQuery" type="search" placeholder="Wie hoch ist die Raumtemperatur im Büro?" autocomplete="off" maxlength="250"><button id="lookupSubmit" type="submit">Anfragen</button></div></form>
+    <p class="muted small">Sage „Wert von Zulufttemperatur Anlage zwei Punkt eins“. Die Suche liest alle Prüfpunkte des gewählten Busses, unabhängig von Markierung und Listenfiltern. In der CSV-Ansicht wird nur die importierte Liste durchsucht.</p>
+    <section id="lookupResults" class="lookup-results" aria-label="Trefferauswahl" hidden><strong id="lookupTitle"></strong><div id="lookupChoices"></div><p class="muted small">Sage „Treffer eins“, „Treffer zwei“ oder eine genauere Bezeichnung.</p><button id="lookupCancel" type="button" class="subtle">Suche abbrechen</button></section>
+    <section id="dialog" class="lookup-results" aria-label="Rückfrage" hidden><p id="dialogText"></p><div id="dialogChoices" class="dialog-choices"></div><button id="dialogNo" type="button" class="subtle">Nein, verwerfen</button></section>
+    <details class="knowledge"><summary>Begriffe und gelernte Zuordnungen</summary>
+      <p id="knowledgeScope" class="muted"></p>
+      <p><a href="settings.html" target="_blank" rel="noopener">Globale Begriffsliste öffnen</a> – Begriffe, Bedeutungen und weitere Bezeichnungen direkt eintragen, bearbeiten, entfernen oder importieren.</p>
+      <p>Neue Bedeutungen kannst du weiterhin erklären: „RT bedeutet Raumtemperatur“, anschließend „Ja, merken“. Bestätigte Begriffe sind dann global verfügbar.</p>
+      <p id="knowledgeStatus" class="muted" aria-live="polite"></p><div id="knowledgeItems"></div>
+      <p class="muted small">Die oben gezeigten Datenpunktzuordnungen und Lesebefehle bleiben beim jeweiligen Controller. Änderungen an globalen Begriffen machen frühere Punktzuordnungen erneut bestätigungspflichtig. Ein Kürzel legt keine Signalpolarität fest.</p>
+    </details>
+    <details><summary>Sprachbefehle und Hinweise</summary><p>„Wert von …“, „Wie hoch ist die Raumtemperatur?“, „Kannst du mir die Freigabe Anlage 2.1 sagen?“, „Prüfe UI1“, „Treffer zwei“, „Ja“, „Nein“, „RT bedeutet Raumtemperatur“, „Suche abbrechen“, „Wert vorlesen“, „Weiter“, „Zurück“, „OK“, „Nicht OK“, „Nicht getestet“, „Kommentar …“, „Speichern“, „Entwurf verwerfen“, „Stopp“.</p><p>Ein eindeutiger Treffer wird ausgewählt und mit Namen, Klemme und aktuellem Wert vorgelesen. Bei unklarer Formulierung macht der Assistent Vorschläge und fragt nach. Ergebnis und Kommentar sind zuerst Entwürfe; ausdrücklich „Speichern“ überträgt sie. Ein einfaches „Ja“ bestätigt keinen nur vermuteten Speicherbefehl.</p><p>Version 0.4 verwendet ein globales Begriffsverzeichnis und Sprachregeln. Die Begriffe gelten in allen Projekten dieses Browserprofils; Export und Import ermöglichen die Übernahme auf andere Rechner. Ein frei formulierender KI-Dienst, eine KI-Plausibilitätsprüfung und die Bedienung über das Smartphone sind noch nicht enthalten. Ausgänge werden ausschließlich gelesen.</p><p>Die erste Verbindung wurde an deinem Controller bestätigt. Grundlage ist die bereitgestellte Weboberfläche von Firmware 8.4.20.</p></details>
+  </section></div>
+  <footer><span id="activity">Verbindungs- und Sprachprototyp · Abfrage alle 4 Sekunden</span><span>BACsolution</span></footer>
+</main><script type="module" src="app.js"></script></body></html>

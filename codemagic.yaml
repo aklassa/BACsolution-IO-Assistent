@@ -1,0 +1,76 @@
+# BACsolution I/O-Assistent 0.1.1 - natives SwiftUI-Projekt, iOS 17+
+# Diese Datei muss im Hauptverzeichnis des Git-Repositorys liegen.
+# Beide Workflows werden manuell in Codemagic gestartet.
+# Einrichtung und Windows-Befehle: CODEMAGIC_BEFEHLE.txt
+workflows:
+  ios-check:
+    name: BACsolution IO - iPhone Build pruefen
+    instance_type: mac_mini_m2
+    max_build_duration: 30
+    environment:
+      xcode: latest
+      node: '24'
+    scripts:
+      - name: Ressourcen und Logik pruefen
+        script: |
+          set -euo pipefail
+          npm run prepare
+          npm test
+          python3 scripts/check_project.py
+      - name: Nativen Simulator-Build pruefen
+        script: |
+          set -euo pipefail
+          mkdir -p build
+          xcodebuild -project BACsolution.xcodeproj -scheme BACsolution \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build/DerivedData CODE_SIGNING_ALLOWED=NO build \
+            > build/ios-check.log 2>&1 || { tail -n 150 build/ios-check.log; exit 1; }
+    artifacts:
+      - build/ios-check.log
+
+  ios-testflight-internal:
+    name: BACsolution IO - internes TestFlight
+    instance_type: mac_mini_m2
+    max_build_duration: 45
+    integrations:
+      # Muss exakt zum Namen deiner Apple-Integration in Codemagic passen.
+      app_store_connect: BACsolution Apple
+    environment:
+      xcode: latest
+      node: '24'
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: de.bacsolution.io.assistent.dev
+      vars:
+        # Nur erhoehen, wenn bereits hoehere Buildnummern bei Apple existieren.
+        BAC_IO_BUILD_OFFSET: '0'
+    scripts:
+      - name: Ressourcen und Logik pruefen
+        script: |
+          set -euo pipefail
+          npm run prepare
+          npm test
+          python3 scripts/check_project.py
+      - name: SDK und neue Buildnummer pruefen
+        script: |
+          set -euo pipefail
+          python3 scripts/ci_build_number.py
+      - name: Signierung fuer interne TestFlight-Tests
+        script: |
+          set -euo pipefail
+          xcode-project use-profiles \
+            --custom-export-options='{"testFlightInternalTestingOnly": true}'
+      - name: Signierte iPhone-App erstellen
+        script: |
+          set -euo pipefail
+          xcode-project build-ipa --project BACsolution.xcodeproj --scheme BACsolution
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        # Laedt die IPA hoch. Danach in Apple deiner internen Testgruppe zuordnen.
+        # false deaktiviert die externe Beta-Review, NICHT den IPA-Upload.
+        submit_to_testflight: false
+        submit_to_app_store: false
