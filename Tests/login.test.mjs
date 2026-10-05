@@ -167,7 +167,7 @@ test('a missing legacy constructor does not block a positively identified LOYTEC
   assert.equal(f.requests.length, 1);
 });
 
-test('metadata fallback still requires a complete known form, controller identity and CSRF', async () => {
+test('DOM fallback requires a complete known form and CSRF and rejects contradictory metadata', async () => {
   for (const change of [
     f => { delete f.fields.loginContainer; },
     f => { f.context.optBase.prodCode = 'unrelated-product'; },

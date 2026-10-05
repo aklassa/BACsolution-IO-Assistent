@@ -8,7 +8,7 @@ Diese Liste beschreibt ausstehende Abnahmen, keine bereits bestandenen Hardwaret
 | Account und Passwort bei neuem Projekt / weiterer Station eingeben | Native Felder reagieren ohne Absturz; Zugangsdaten werden pro Station gespeichert |
 | Bestehende Station aus 0.1.1 öffnen | Daten bleiben erhalten; Zugangsdaten können einmalig ergänzt werden |
 | LOYTEC 8.4.20 anmelden | Automatischer Login lädt die I/O-Testseite; keine Eingabe in der eingebetteten Website nötig |
-| 0.1.6 mit gespeicherten Zugangsdaten öffnen | WebKit wird am App-Fenster angebunden; TCP-Porttest und Anmeldephasen laufen durch |
+| 0.1.7 mit gespeicherten Zugangsdaten öffnen | WebKit wird am App-Fenster angebunden; TCP-Porttest und Anmeldephasen laufen durch |
 | HTTP-Adresse öffnen | Der konfigurierte HTTP-Port wird verwendet; keine selbständige Umstellung auf HTTPS |
 | HTTPS mit nicht bestätigtem Zertifikat öffnen | Zertifikatskarte vor dem Login; kein Passwortversand vor Freigabe |
 | SHA-256-Fingerabdruck am Controller bzw. geprüftem PC vergleichen und freigeben | Nur die ausgewählte Station mit genau diesem Zertifikat kann sich anmelden |
@@ -20,6 +20,8 @@ Diese Liste beschreibt ausstehende Abnahmen, keine bereits bestandenen Hardwaret
 | Lokales Netzwerk verweigern und danach in iOS erlauben | Hinweis erscheint; ein ausdrücklich neu gestarteter Versuch kann fortfahren |
 | Abbruch bei der Anmeldeprüfung | Fehlermeldung und Diagnosecode direkt unter Verbindung; Kopieren ohne Aufklappen der Diagnose möglich |
 | Anmeldeformular vorhanden, LOYTEC-Variablen nicht sichtbar | Metadaten und Sitzungstoken werden aus der geladenen Seite erkannt; Diagnose zeigt baseFromHTML/ csrfFromHTML; genau ein Anmeldeauftrag |
+| Vollständiges Anmeldeformular mit Sitzungstoken, aber ohne Gerätekennung wie im Log 0.1.6 (11) | Auch bei controllerBrand=nein und baseFromHTML=nein folgt login-form-ready und Einmalige Anmeldung über /webui/login; kein Abbruch nur wegen fehlender Metadaten |
+| Anmeldung beantwortet, aber I/O-Seite noch nicht bestätigt | Keine Freigabe von Datenpunkten; erst gültige authentifizierte I/O-Metadaten bestätigen die Verbindung |
 | I/O-Seite nach erfolgreicher Anmeldung | Datenpunkte lassen sich auch bei nicht sichtbaren JavaScript-Variablen frisch lesen; Rollenprüfung bleibt wirksam |
 | Verzögerter Seitenaufbau | Formularprüfung wartet begrenzt; keine mehrfachen Passwortanfragen |
 | Verbindungsdiagnose kopieren | Version, Status, Abbruchgrund, Zugangsdaten-vorhanden-Hinweis und Seitenmerkmale enthalten; Benutzername, Passwort und Tokenwerte fehlen |

@@ -1,4 +1,4 @@
-BACsolution I/O-Assistent – Testversion 0.1.6
+BACsolution I/O-Assistent – Testversion 0.1.7
 Stand: 5. Oktober 2026
 
 Dieses Paket enthält den Quellcode für Codemagic. Es ist noch keine
@@ -7,10 +7,10 @@ installierbare IPA und wurde noch nicht zu TestFlight hochgeladen.
 Kopierfertige Windows-PowerShell-Befehle und die Codemagic-Einrichtung
 stehen in CODEMAGIC_BEFEHLE.txt. Du übernimmst Upload und Buildstart selbst.
 
-Bei einem BESTEHENDEN Projekt zuerst docs/UPDATE_0.1.6.md verwenden:
+Bei einem BESTEHENDEN Projekt zuerst docs/UPDATE_0.1.7.md verwenden:
 Update-Dateien in C:\BACsolution_IO_iPhone_Arbeitsstand ersetzen,
 committen, pushen und den vorhandenen Codemagic-Workflow starten.
-Auf dem iPhone nach der Installation Version 0.1.6 pruefen, einmal verbinden
+Auf dem iPhone nach der Installation Version 0.1.7 pruefen, einmal verbinden
 und bei einem Abbruch direkt in der Fehlermeldung Diagnose kopieren waehlen.
 Die folgenden nummerierten Schritte beschreiben nur die Ersteinrichtung.
 
@@ -33,7 +33,7 @@ Die folgenden nummerierten Schritte beschreiben nur die Ersteinrichtung.
 4. Nach erfolgreichem ios-check den Workflow ios-testflight-internal
    starten (Name: BACsolution IO - internes TestFlight).
    Er erstellt und signiert die IPA und lädt sie zu App Store Connect hoch.
-   Version: 0.1.6. Die Buildnummer vergibt Codemagic automatisch.
+   Version: 0.1.7. Die Buildnummer vergibt Codemagic automatisch.
 
 5. Nach Apples Verarbeitung den Build in App Store Connect der eigenen
    internen Testgruppe zuweisen. Auf dem iPhone über TestFlight installieren.

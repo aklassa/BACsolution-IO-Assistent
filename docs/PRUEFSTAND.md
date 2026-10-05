@@ -1,4 +1,27 @@
-# Prüfstand 0.1.6 vom 5. Oktober 2026
+# Prüfstand 0.1.7 vom 5. Oktober 2026
+
+| Bereich | Ergebnis |
+|---|---|
+| Portable Node-Tests | 99 bestanden; keine Fehler; ein nativer Test lokal übersprungen |
+| Gemeldeter Zustand aus 0.1.6 (11) | Alle protokollierten Seitenmerkmale ohne globale oder eingebettete Gerätekennung nachgebildet. Unveränderte 0.1.6-Brücke weist das Formular ab; korrigierte Brücke erkennt es |
+| Tokenquellen und Protokolle | Inline-Token sowie zugehöriges verstecktes Formularfeld jeweils unter simuliertem HTTP und HTTPS geprüft |
+| Anmeldung und I/O | Ein Anmeldeauftrag, danach bestätigte Sitzungsmetadaten, frisches Lesen und separater Kommentar-Readback in der Simulation bestanden |
+| Fehlerfälle | Unvollständige Formulare, fehlende/ungültige Token, fremde Adressen/Pfade, abgewiesene Passwörter, unbestätigte Antworten und Passwortwarnungen geprüft |
+| Ursprüngliche Controller-HTML-Datei | Zwei zusätzliche Prüfungen bestanden; keine Originaldaten im Update |
+| Projektstruktur | Ressourcen, Berechtigungen und Schema konsistent |
+| Swift und native Zertifikatspolitik | Swift-Dateien gegenüber 0.1.6 unverändert; kein neuer Syntax-/Typecheck. Nativer Test benötigt macOS und bleibt im Codemagic-Workflow enthalten |
+| Tatsächlicher Controller-Login / Xcode-Build 0.1.7 | Ausstehend |
+| Upload / Codemagic / Veröffentlichung durch diese Bearbeitung | Nicht durchgeführt |
+
+## Befund und Korrektur in 0.1.7
+
+Der neue Nutzerlog belegt, dass 0.1.6 den Sitzungstoken findet. Die zusätzlich verlangte Gerätekennung fehlt weiterhin. Der Quellcode bestätigt, dass dies trotz vollständig erkanntem Anmeldeformular vor dem Passwortversand zum Abbruch führt. Die Korrektur erlaubt den Anmeldeversuch bei vollständiger LOYTEC-Formularstruktur und eindeutigem Token an der exakt gewählten Adresse. Vorhandene widersprüchliche Metadaten verhindern diese Formularerkennung weiterhin. Die Bestätigung der Anmeldung und der I/O-Seite bleibt gesondert erforderlich.
+
+Der vorherige Test hatte Geräteinformationen im HTML vorausgesetzt. Diese Annahme war durch den damaligen Log nicht gesichert. Der neue Regressionstest enthält keinerlei Gerätekennung und bildet alle Merkmale des jetzt gelieferten Logs nach. Sein Fehlschlag vor der Codeänderung und sein Erfolg danach bestätigen die gezielte Korrektur der Formularprüfung, keinen tatsächlichen iPhone-Login.
+
+Update-Anleitung: `UPDATE_0.1.7.md`.
+
+## Vorangegangener Prüfstand 0.1.6 vom 5. Oktober 2026
 
 | Bereich | Ergebnis |
 |---|---|
@@ -15,10 +38,10 @@
 | Gerätetest 0.1.5 (10) | Vollständiges Formular; LoginPage, Metadaten und CSRF-Variable für die Brücke nicht sichtbar; login-form-unrecognized |
 | HTML-Sitzungsdaten 0.1.6 | Meldung aus 0.1.5 nachgestellt; gleiche Seite wird mit 0.1.6 erkannt. Simulierte Anmeldung, I/O-Lesen und Kommentar-Readback bestehen |
 | Ursprüngliche Controller-HTML-Datei | Zwei zusätzliche Prüfungen bestanden: Metadaten/CSRF ohne Ausführung auslesen und 26 lokale Kanäle verarbeiten |
-| LOYTEC-Anmeldung 0.1.6 | Tatsächlicher Login und Xcode-Build dieses Updates ausstehend |
+| LOYTEC-Anmeldung 0.1.6 | Nachträglicher Nutzerlog: Sitzungstoken erkannt, Gerätekennung fehlt weiterhin; Abbruch vor dem Anmeldeauftrag |
 | Upload / Codemagic / Veröffentlichung | Nicht durchgeführt |
 
-## Aktuelles Fehlerbild und Änderung
+## Fehlerbild und Änderung in 0.1.6
 
 Der vollständige Log von **0.1.5 (10)** zeigt: Formular, Accountfeld, Passwortfeld, Formularzuordnung, POST-Methode und Logincontainer vorhanden. Zugangsdaten sind gespeichert. Die bisher verwendeten JavaScript-Zugriffe liefern hingegen keinen LoginPage-Konstruktor, keine erkannten Controller-Metadaten und keinen CSRF-Token. Deshalb wird vor dem Passwortversand abgebrochen. Der Log belegt diesen Prüfungsfehler, aber nicht die zugrunde liegende WebKit-Ursache.
 

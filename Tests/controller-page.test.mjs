@@ -14,13 +14,13 @@ const inline = (base, csrf = token) => [
 const loginSource = fs.readFileSync(new URL('../Resources/ControllerLogin.js', import.meta.url), 'utf8');
 const ioSource = fs.readFileSync(new URL('../Resources/ControllerBridge.js', import.meta.url), 'utf8');
 
-function fixture() {
+function fixture({pageOrigin = origin} = {}) {
   const form = {method:'post'};
   const fields = {loginForm:form, loginContainer:{}, username:{form,value:'untouched'}, password:{form,type:'password',value:'untouched'}};
   const document = {readyState:'complete', getElementById:id => fields[id] ?? null, scripts:inline(metadata()), querySelectorAll:() => []};
   let authenticated = false;
   const calls = [], row = {objIdx:0,type:1,value:['21.4','°C',0],opmode:['Auto','',0],ioName:'Zulufttemperatur Anlage 2.1',term:'UI1',dscr:'',testState:0,testDate:'',testComment:'',dpPath:'Local IO/UI1',hwType:'in_ana'};
-  const context = vm.createContext({document, location:{origin,protocol:'http:',pathname:'/webui/liob/iotest'},
+  const context = vm.createContext({document, location:{origin:pageOrigin,protocol:new URL(pageOrigin).protocol,pathname:'/webui/liob/iotest'},
     URLSearchParams, AbortController, setTimeout, clearTimeout,
     fetch:async (path, options) => {
       const params = Object.fromEntries(new URLSearchParams(options.body)); calls.push({path,params,options});
@@ -41,9 +41,9 @@ function fixture() {
       const keys = Object.keys(row);
       return {ok:true,text:async () => JSON.stringify({devs:[{idx:0,name:'Test',ios:[keys.length,...keys,...keys.map(k => row[k])]}]})};
     }});
-  const page = () => JSON.parse(vm.runInContext(`JSON.stringify((${controllerPageContext.toString()})(${JSON.stringify(origin)}))`,context));
+  const page = () => JSON.parse(vm.runInContext(`JSON.stringify((${controllerPageContext.toString()})(${JSON.stringify(pageOrigin)}))`,context));
   const run = async (source, request) => {
-    context.request = {origin,...request};
+    context.request = {origin:pageOrigin,...request};
     return JSON.parse(await vm.runInContext(`(async function(request){${source}})(request)`,context));
   };
   return {context,document,fields,calls,page,run,
@@ -55,7 +55,7 @@ function fixture() {
     }};
 }
 
-test('reported 0.1.5 state: complete login form works without any LOYTEC globals', async () => {
+test('inline controller metadata identifies a complete login form without LOYTEC globals', async () => {
   const f = fixture();
   assert.equal(vm.runInContext('typeof LoginPage + "," + typeof optBase + "," + typeof g_csrf_token',f.context),'undefined,undefined,undefined');
   const state = await f.login();
@@ -71,8 +71,78 @@ test('reported 0.1.5 state: complete login form works without any LOYTEC globals
   for (const secret of [token,'PRIVATE-ACCOUNT','exact & password']) assert.ok(!JSON.stringify(state).includes(secret));
 });
 
-test('login, fresh I/O read and confirmed comment readback also work without globals', async () => {
+test('reported 0.1.6 state: login form and HTML token suffice without any controller metadata', async () => {
+  for (const pageOrigin of ['http://controller.test', 'https://controller.test']) {
+    for (const csrfSource of ['inline', 'form']) {
+      const f = fixture({pageOrigin});
+      f.document.scripts = csrfSource === 'inline' ? inline(metadata()).slice(0,1) : [];
+      if (csrfSource === 'form') f.fields.loginForm.querySelectorAll = () => [{form:f.fields.loginForm,value:token}];
+      f.context.__bacIOTransportDiagnostics = {scriptErrors:0,resourceErrors:0};
+      assert.equal(f.page().base,null);
+      assert.equal(f.page().baseSource,'missing');
+      assert.equal(f.page().csrfSource,csrfSource);
+      assert.equal(f.page().canEdit,false);
+      const reply = await f.login();
+      assert.deepEqual(reply.diagnostics.flags, {
+        form:true, username:true, password:true, inputsLinked:true, passwordInput:true,
+        postForm:true, loginContainer:true, loginClass:false, controllerBrand:false,
+        authenticated:false, csrf:true, passwordAction:false, baseFromHTML:false,
+        csrfFromHTML:true, transportHook:true
+      });
+      assert.equal(reply.state,'login');
+      assert.equal(reply.code,'login-form-ready');
+      await assert.rejects(f.io({operation:'info'}),/Bitte am LOYTEC-Controller anmelden/);
+      assert.equal(f.calls.length,0);
+      assert.equal((await f.login('authenticate')).code,'login-confirmed');
+      assert.equal(f.calls.length,1);
+      assert.equal(f.calls[0].path,'/webui/login');
+      assert.equal(f.fields.password.value,'untouched');
+      for (const secret of [token,'PRIVATE-ACCOUNT','exact & password']) assert.ok(!JSON.stringify(reply).includes(secret));
+    }
+  }
+});
+
+test('metadata-free login still rejects incomplete forms, invalid tokens and foreign destinations', async () => {
+  for (const change of [
+    f => { delete f.fields.loginContainer; },
+    f => { delete f.fields.username; },
+    f => { f.fields.password.form = {}; },
+    f => { f.fields.password.type = 'text'; },
+    f => { f.fields.loginForm.method = 'get'; },
+    f => { f.document.scripts = []; },
+    f => { f.document.scripts = [{textContent:'g_csrf_token="invalid token";'}]; },
+    f => { f.context.location.origin = 'http://another.test'; },
+    f => { f.context.location.origin = 'http://controller.test:8080'; },
+    f => { f.context.location.pathname = '/unrelated'; }
+  ]) {
+    const f = fixture(); f.document.scripts = inline(metadata()).slice(0,1); change(f);
+    assert.equal((await f.login('authenticate')).state,'error');
+    assert.equal(f.calls.length,0);
+  }
+});
+
+test('metadata-free login still requires controller confirmation and does not retry failures', async () => {
+  for (const [responseText, expectedCode] of [
+    ['{"loggedIn":"0","authFail":[]}', 'login-rejected'],
+    ['{}', 'login-unconfirmed'],
+    ['<html>Login</html>', 'invalid-login-response'],
+    ['{"loggedIn":"1","loginState":2}', 'controller-action-required']
+  ]) {
+    const f = fixture(); f.document.scripts = inline(metadata()).slice(0,1);
+    f.context.fetch = async (path,options) => {
+      f.calls.push({path,options});
+      return {ok:true,status:200,text:async () => responseText};
+    };
+    assert.equal((await f.login('authenticate')).code,expectedCode);
+    assert.equal(f.calls.length,1);
+    await assert.rejects(f.io({operation:'info'}),/Bitte am LOYTEC-Controller anmelden/);
+    assert.equal(f.calls.length,1);
+  }
+});
+
+test('metadata-free login followed by authenticated metadata permits fresh reads and confirmed comment readback', async () => {
   const f = fixture();
+  f.document.scripts = inline(metadata()).slice(0,1);
   await f.login('authenticate'); f.loadIO();
   assert.equal((await f.login()).state,'authenticated');
   const info = await f.io({operation:'info'});
@@ -114,7 +184,10 @@ test('inline parser handles nested JSON and escaped text but never executes expr
     `var optBase = ${JSON.stringify(metadata())} + (globalThis.executed=true);`
   ]) {
     const g = fixture(); g.document.scripts = [{textContent:text},inline(metadata())[0]];
-    assert.equal((await g.login('authenticate')).state,'error');
+    assert.equal(g.page().base,null);
+    assert.equal(g.page().baseSource,'missing');
+    assert.equal(g.page().canEdit,false);
+    await assert.rejects(g.io({operation:'info'}),/Bitte am LOYTEC-Controller anmelden/);
     assert.equal(g.calls.length,0); assert.equal(g.context.executed,undefined);
   }
 });

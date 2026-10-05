@@ -175,10 +175,16 @@ async function controllerLogin(request, pageContext = null) {
       firstScriptSource: sourceKind(transport.firstScriptSource), firstResourceSource: sourceKind(transport.firstResourceSource)
     };
     if (passwordAction) return reply('actionRequired', 'controller-action-required');
-    // The recognized LOYTEC form is sufficient when controller metadata and CSRF
-    // identify it. A missing legacy LoginPage constructor alone must not block it.
-    const knownController = loginClass || (controllerBrand && loginContainer && csrf && base.loggedIn === false);
-    const loginPage = inputsLinked && passwordInput && postForm && knownController;
+    // A logged-out page may expose neither LoginPage nor optBase, even in its
+    // inline HTML. At the exact selected origin and known path (checked above),
+    // the LOYTEC container, linked POST/password form and session token suffice
+    // to attempt login. Missing metadata is not a denial of authentication.
+    // Explicit contradictory metadata still blocks the DOM fallback. I/O access
+    // separately requires authenticated controller metadata in controllerTask.
+    const metadataMismatch = base.loggedIn === true ||
+      (typeof base.prodCode === 'string' && base.prodCode.length > 0 && !controllerBrand);
+    const recognizedLogin = loginClass || (loginContainer && csrf && !metadataMismatch);
+    const loginPage = inputsLinked && passwordInput && postForm && recognizedLogin;
     if (!loginPage) {
       if (!form && controllerBrand && base.loggedIn === true) return reply('authenticated', 'already-authenticated');
       // didFinish is not a guarantee that asynchronous page setup has created the

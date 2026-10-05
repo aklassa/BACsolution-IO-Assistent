@@ -19,7 +19,7 @@ In [Apple Developer](https://developer.apple.com/account/) eine explizite App-ID
 | App-Name | BACsolution IO-Assistent |
 | Bundle-ID | `de.bacsolution.io.assistent.dev` |
 | Plattform | iOS |
-| Version | `0.1.6` |
+| Version | `0.1.7` |
 
 In [App Store Connect](https://appstoreconnect.apple.com/) eine neue App mit genau dieser Bundle-ID anlegen. Das ist erforderlich, bevor die erste Binärdatei zugeordnet werden kann. Für einen anderen Bezeichner `scripts/xcode_project.py` und `codemagic.yaml` gemeinsam anpassen, danach `npm run prepare` ausführen.
 
