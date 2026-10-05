@@ -1,8 +1,8 @@
-# Prüfstand 0.1.5 vom 5. Oktober 2026
+# Prüfstand 0.1.6 vom 5. Oktober 2026
 
 | Bereich | Ergebnis |
 |---|---|
-| Portable Node-Tests | 89 bestanden; keine Fehler |
+| Portable Node-Tests | 96 bestanden; keine Fehler |
 | Anmeldeprüfung | Verzögerter Formularaufbau, fehlender Legacy-Konstruktor, verdeckte Formulareigenschaft, unbekannte Seiten, feste Diagnosefelder und Unterdrückung vertraulicher Ausnahmeinhalte geprüft |
 | Geführter Test | Referenzabweichung, bestehende Kommentare, klare/negierte Zustimmungen, numerische und binäre Änderungen geprüft |
 | Serverteil | Kurzlebige Tokens, feste Werkzeuge, Authentifizierung, Schema, Antwortvalidierung, Startgrenzen mit simuliertem OpenAI-Dienst geprüft |
@@ -12,10 +12,25 @@
 | Swift | Syntax von 18 App-Dateien und einer Swift-Testdatei mit Parser geprüft; kein Swift-Typecheck, kein Xcode-Build |
 | Live-KI / Audio / iPhone | Ausstehend; kein API-Schlüssel verwendet, keine kostenpflichtige Anfrage ausgeführt |
 | Gerätetest 0.1.4 (9) | TCP-Port erreichbar, HTTP 200 und Seite geladen; Abbruch bei Anmeldeprüfung ohne protokollierten Grund |
-| LOYTEC-Anmeldung 0.1.5 | Quellcode korrigiert; neuer iPhone-Build und tatsächlicher Login ausstehend |
+| Gerätetest 0.1.5 (10) | Vollständiges Formular; LoginPage, Metadaten und CSRF-Variable für die Brücke nicht sichtbar; login-form-unrecognized |
+| HTML-Sitzungsdaten 0.1.6 | Meldung aus 0.1.5 nachgestellt; gleiche Seite wird mit 0.1.6 erkannt. Simulierte Anmeldung, I/O-Lesen und Kommentar-Readback bestehen |
+| Ursprüngliche Controller-HTML-Datei | Zwei zusätzliche Prüfungen bestanden: Metadaten/CSRF ohne Ausführung auslesen und 26 lokale Kanäle verarbeiten |
+| LOYTEC-Anmeldung 0.1.6 | Tatsächlicher Login und Xcode-Build dieses Updates ausstehend |
 | Upload / Codemagic / Veröffentlichung | Nicht durchgeführt |
 
 ## Aktuelles Fehlerbild und Änderung
+
+Der vollständige Log von **0.1.5 (10)** zeigt: Formular, Accountfeld, Passwortfeld, Formularzuordnung, POST-Methode und Logincontainer vorhanden. Zugangsdaten sind gespeichert. Die bisher verwendeten JavaScript-Zugriffe liefern hingegen keinen LoginPage-Konstruktor, keine erkannten Controller-Metadaten und keinen CSRF-Token. Deshalb wird vor dem Passwortversand abgebrochen. Der Log belegt diesen Prüfungsfehler, aber nicht die zugrunde liegende WebKit-Ursache.
+
+0.1.6 ergänzt einen gemeinsamen Leser für die Sitzungsdaten beider nativen Brücken. Er übernimmt ausschließlich JSON-Literale aus den bekannten Firmware-Zuweisungen und Tokenwerte aus dem zugehörigen versteckten Formularfeld. Controller-Quelltext wird dabei nicht ausgeführt. Globale Daten werden weiterhin bevorzugt. Widersprüchliche Daten stoppen den Auftrag; fremde Adressen und unbekannte Seiten erhalten keine Zugangsdaten. Nur Datenquellen und Ja/Nein-Merkmale gelangen in die Diagnose.
+
+Für die I/O-Seite werden bei fehlender Laufzeitfunktion die exakt im gelieferten Firmwarecode definierten Bearbeitungsrollen ausgewertet: superadmin, admin, operator. Eine vorhandene Rollenfunktion bleibt maßgeblich; unbekannte Rollen erhalten keine Schreibberechtigung. Die vorhandenen Einschränkungen auf Prüfstatus und Kommentare einschließlich Vorprüfung und separatem Zurücklesen gelten weiterhin.
+
+Ein Regressionstest bildet das gemeldete Formular ohne LOYTEC-Globals nach. Die alte Brücke liefert login-form-unrecognized; die neue liefert login-form-ready. Ein weiterer Test umfasst Anmeldung, Seitenwechsel, frisches Lesen und bestätigtes Zurücklesen eines Kommentars. Zusätzlich wurde der Datenleser gegen die ursprünglich gelieferte, lokal gehaltene Controller-HTML-Datei geprüft. Dies ersetzt keinen echten iPhone-Test.
+
+Der Info.plist-Eintrag ITSAppUsesNonExemptEncryption=false beschreibt die im geprüften App-Code verwendeten Apple-Systemfunktionen. Er ist für künftige Builds vorgesehen; der bereits hochgeladene Build 10 wird dadurch nicht verändert.
+
+## Vorangegangene Diagnosekorrektur 0.1.5
 
 Der Nutzer hat den vollständigen Gerätelog von **0.1.4 (9), iOS 27.0.1** geliefert. Der Controller antwortet nach 0,5 Sekunden mit HTTP 200. Nach „Seite geladen; Anmeldestatus prüfen“ endet der Versuch sofort. Eine zusätzliche Fehlermeldung war nach Rückmeldung des Nutzers nicht vorhanden. Der Quellcode bestätigt, dass `stopWithMessage` den Grund bislang nur in den UI-Status schreibt, im kopierten Log aber lediglich Phase und Verbindungsende hinterlässt. Der konkrete Login-Abbruch ist dadurch nicht bestimmbar; ein falsches Passwort ist nicht belegt.
 

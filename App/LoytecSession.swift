@@ -16,7 +16,7 @@ private struct ControllerPageDiagnostics: Decodable, Equatable {
 
     var summary: String {
         let fields = ["form", "username", "password", "inputsLinked", "passwordInput", "postForm",
-                      "loginContainer", "loginClass", "controllerBrand", "authenticated", "csrf", "passwordAction"]
+                      "loginContainer", "loginClass", "controllerBrand", "authenticated", "csrf", "passwordAction", "baseFromHTML", "csrfFromHTML", "transportHook"]
         return fields.map { "\($0)=\(flags[$0] == true ? "ja" : "nein")" }.joined(separator: ", ")
     }
 }
@@ -90,7 +90,7 @@ private struct ControllerConnectionError: LocalizedError {
         if let url = Bundle.main.url(forResource: "ControllerTransport", withExtension: "js"),
            let source = try? String(contentsOf: url, encoding: .utf8) {
             configuration.userContentController.addUserScript(WKUserScript(
-                source: source, injectionTime: .atDocumentStart, forMainFrameOnly: false))
+                source: source, injectionTime: .atDocumentStart, forMainFrameOnly: false, in: .page))
         }
         let view = ControllerTransportWebView(frame: .zero, configuration: configuration)
         view.isUserInteractionEnabled = false

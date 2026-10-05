@@ -1,7 +1,7 @@
 // Login protocol observed in the supplied LOYTEC 8.4.20 base.js (LoginPage).
 // This bridge never focuses/fills browser inputs and never changes controller settings.
 // Credentials arrive as WKWebView structured arguments, never executable source text.
-export async function controllerLogin(request) {
+export async function controllerLogin(request, pageContext = null) {
   let diagnostics;
   const safeFailures = new WeakSet();
   const reply = (state, code, message) => ({ state, code, ...(message ? {message} : {}), ...(diagnostics ? {diagnostics} : {}) });
@@ -12,28 +12,32 @@ export async function controllerLogin(request) {
         !['/webui/liob/iotest', '/webui/liob/iotest/', '/webui/login', '/'].includes(location.pathname)) {
       fail('wrong-controller', 'Die Anmeldung gehört nicht zum gewählten Controller.');
     }
+    if (pageContext?.error) fail('controller-page-data-ambiguous', 'Die Controller-Seite enthält keine eindeutig zugeordneten Sitzungsdaten. Erneut verbinden.');
     const form = document.getElementById('loginForm');
     const username = document.getElementById('username');
     const password = document.getElementById('password');
     const loginContainer = !!document.getElementById('loginContainer');
     const passwordAction = !!(document.getElementById('confirmWarnForm') || document.getElementById('passwdInitContainer'));
-    const base = typeof optBase === 'object' && optBase !== null ? optBase : {};
+    const base = pageContext?.base ?? (typeof optBase === 'object' && optBase !== null ? optBase : {});
     const controllerBrand = typeof base.prodCode === 'string' && /^L(IOB|INX)-/.test(base.prodCode);
     const loginClass = typeof LoginPage === 'function';
-    const csrf = typeof g_csrf_token === 'string' && !!g_csrf_token;
+    const csrfToken = pageContext?.csrfToken ?? (typeof g_csrf_token === 'string' ? g_csrf_token : '');
+    const csrf = !!csrfToken;
     const inputsLinked = !!form && !!username && !!password && username.form === form && password.form === form;
     // A named form control can shadow form.method; read the attribute on real DOM nodes.
     const method = typeof form?.getAttribute === 'function' ? form.getAttribute('method') : form?.method;
     const postForm = typeof method === 'string' && method.toLowerCase() === 'post';
     const passwordInput = password?.type === 'password';
-    const transport = typeof __bacIOTransportDiagnostics === 'object' && __bacIOTransportDiagnostics !== null ? __bacIOTransportDiagnostics : {};
+    const transportHook = typeof __bacIOTransportDiagnostics === 'object' && __bacIOTransportDiagnostics !== null;
+    const transport = transportHook ? __bacIOTransportDiagnostics : {};
     const count = n => Number.isInteger(n) && n >= 0 ? Math.min(n, 999) : 0;
     const sourceKind = value => ['none', 'page', 'prototype', 'base', 'liob', 'liob_host', 'other'].includes(value) ? value : 'other';
     // Presence flags only: never include field values, page text, URLs, tokens or exception messages.
     diagnostics = {
       readyState: ['loading', 'interactive', 'complete'].includes(document.readyState) ? document.readyState : 'unknown',
       flags: { form: !!form, username: !!username, password: !!password, inputsLinked, passwordInput,
-        postForm, loginContainer, loginClass, controllerBrand, authenticated: base.loggedIn === true, csrf, passwordAction },
+        postForm, loginContainer, loginClass, controllerBrand, authenticated: base.loggedIn === true, csrf, passwordAction,
+        baseFromHTML: pageContext?.baseSource === 'inline', csrfFromHTML: ['inline', 'form'].includes(pageContext?.csrfSource), transportHook },
       scriptErrors: count(transport.scriptErrors), resourceErrors: count(transport.resourceErrors),
       firstScriptError: ['none', 'SyntaxError', 'TypeError', 'ReferenceError', 'RangeError', 'unhandled-promise', 'other'].includes(transport.firstScriptError) ? transport.firstScriptError : 'none',
       firstScriptSource: sourceKind(transport.firstScriptSource), firstResourceSource: sourceKind(transport.firstResourceSource)
@@ -62,7 +66,7 @@ export async function controllerLogin(request) {
         method: 'POST', credentials: 'same-origin', cache: 'no-store', redirect: 'error',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
-          'X-Requested-With': 'XMLHttpRequest', 'X-Create-Session': '1', 'X-Csrf-Token': g_csrf_token
+          'X-Requested-With': 'XMLHttpRequest', 'X-Create-Session': '1', 'X-Csrf-Token': csrfToken
         },
         body: new URLSearchParams({ username: request.username, password: request.password }).toString(),
         signal: abort.signal

@@ -2,15 +2,18 @@
 // Protocol observed in the user's LIOB-589 Web UI, firmware 8.4.20.
 // Only testState / testComment writes are implemented. Never accept arbitrary URLs,
 // semantic IDs, actuator values, operating modes, reset or clear parameters.
-export async function controllerTask(request) {
+export async function controllerTask(request, pageContext = null) {
   const fail = (message) => { throw new Error(message); };
   if (!request || !['info', 'read', 'write'].includes(request.operation)) fail('Unbekannter Auftrag.');
   if (!['https:', 'http:'].includes(location.protocol) || location.origin !== request.origin ||
       !/^\/webui\/liob\/iotest\/?$/.test(location.pathname)) fail('Der zugeordnete LOYTEC-I/O-Testtab ist nicht mehr geöffnet.');
-  if (typeof optBase === 'undefined' || optBase.loggedIn !== true || !/^L(IOB|INX)-/.test(String(optBase.prodCode))) {
+  if (pageContext?.error) fail('Sitzungsdaten der Controller-Seite sind nicht eindeutig. Erneut verbinden.');
+  const base = pageContext?.base ?? (typeof optBase === 'undefined' ? null : optBase);
+  const csrfToken = pageContext?.csrfToken ?? (typeof g_csrf_token === 'string' ? g_csrf_token : '');
+  if (!base || base.loggedIn !== true || !/^L(IOB|INX)-/.test(String(base.prodCode))) {
     fail('Bitte am LOYTEC-Controller anmelden und die I/O-Testseite neu öffnen.');
   }
-  if (typeof g_csrf_token !== 'string' || !g_csrf_token) fail('Aktuelle Anmeldung fehlt. I/O-Testseite neu laden.');
+  if (!csrfToken) fail('Aktuelle Anmeldung fehlt. I/O-Testseite neu laden.');
 
   function pageOptions() {
     for (const script of document.scripts) {
@@ -29,8 +32,8 @@ export async function controllerTask(request) {
   if (!Array.isArray(opt.tabs) || !opt.tabs.length) fail('Keine I/O-Busse in der Seite gefunden.');
   const buses = opt.tabs.map(([id, name]) => ({ id, name }));
   if (buses.some(b => !Number.isInteger(b.id) || b.id < 0 || typeof b.name !== 'string')) fail('Ungültige Buszuordnung.');
-  const info = { origin: location.origin, product: optBase.prodCode, buses,
-    pageTime: optBase.date, canEdit: typeof g_LBase !== 'undefined' && typeof g_LBase.editAllowedByRole === 'function' && !!g_LBase.editAllowedByRole() };
+  const info = { origin: location.origin, product: base.prodCode, buses,
+    pageTime: base.date, canEdit: pageContext?.canEdit ?? (typeof g_LBase !== 'undefined' && typeof g_LBase.editAllowedByRole === 'function' && !!g_LBase.editAllowedByRole()) };
   if (request.operation === 'info') return info;
   const bus = buses.find(b => b.id === request.inst);
   if (!bus) fail('Unbekannter Bus.');
@@ -86,7 +89,7 @@ export async function controllerTask(request) {
     const timer = setTimeout(() => controller.abort(), 10000);
     try {
       const response = await fetch(path, { method: 'POST', credentials: 'same-origin', cache: 'no-store', redirect: 'error',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8', 'X-Csrf-Token': g_csrf_token, 'X-Requested-With': 'XMLHttpRequest' },
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8', 'X-Csrf-Token': csrfToken, 'X-Requested-With': 'XMLHttpRequest' },
         body: new URLSearchParams(parameters).toString(), signal: controller.signal });
       if (!response.ok) fail(`Controller antwortet mit HTTP ${response.status}. Anmeldung und Verbindung prüfen.`);
       let data;
