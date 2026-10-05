@@ -1,31 +1,26 @@
-# Prüfstand für Arbeitsstand 0.1.2 vom 5. Oktober 2026
+# Prüfstand 0.1.3 vom 5. Oktober 2026
 
-**Neuer Quellcode-Arbeitsstand, noch nicht mit Xcode gebaut oder auf dem iPhone getestet.** Für die vorherige Version 0.1.1 wurden ein erfolgreicher Codemagic-Simulator-Build und der App-Start auf dem iPhone vom Anwender gezeigt. Dort trat der gemeldete Absturz beim Antippen von Account/Passwort in der Controller-Webseite auf. Ohne iPhone-Absturzprotokoll ist die konkrete Ursache nicht belegt.
-
-0.1.2 ersetzt diese Eingabe durch native SwiftUI-Felder. Die Controller-Webansicht wird nicht mehr in ein Fenster eingebunden. Gespeicherte Zugangsdaten werden strukturiert an die in der bereitgestellten Firmware nachvollzogene LOYTEC-Anmeldeschnittstelle übergeben.
-
-| Bereich | Stand |
+| Bereich | Ergebnis |
 |---|---|
-| Mitgelieferte Node-Tests für Version 0.1.2, ohne Anlagendateien | 72 bestanden, einschließlich elf neuer Prüfungen der Login-Brücke |
-| Vorherige Prüfung der unveränderten gemeinsamen Logik einschließlich der zwei bereitgestellten LOYTEC-Beispiele | 63 bestanden; Anlagendateien nicht mitgeliefert |
-| Generierte JavaScript-Brücken | Suche, Begriffsvalidierung und strukturierte Controller-Aufrufe unter Node geprüft |
-| Login-Brücke | Erfolgs- und Fehlerantworten, Ursprung/Port, unbekannte Formulare, CSRF, Sonderzeichen, Anmeldesperre, Timeout, Pflichtaktion am Controller und Geheimnisfreiheit der Rückgabe unter Node geprüft |
-| Native Schlüsselbundspeicherung | Implementiert, nur bei entsperrtem iPhone und gerätegebunden; tatsächliches Lesen/Schreiben nach Installation noch am Gerät zu prüfen |
-| Abgleichdienst | Konflikte bei zwei Clients, Wiederholungen nach Neustart, Offline-Folgeänderungen, historische Konfigurationsstände, unveränderliche Prüfhistorie und API-Anmeldung geprüft |
-| Xcode-Projektstruktur | Quelldateien, Ressourcen, Berechtigungen, Objektverweise und gemeinsames Build-Schema geprüft |
-| Swift-Quelldateien | 12 Dateien syntaktisch mit Tree-sitter geprüft; keine Syntaxfehler. Typprüfung und native Ausführung stehen noch aus |
-| Swift-Typprüfung, Apple-SDK-Verfügbarkeit und Verlinkung | Offen; Xcode ist in dieser Arbeitsumgebung nicht vorhanden |
-| Native Oberfläche, WebKit-Sitzung und ursprünglicher Absturz | Beanstandeter Web-Eingabeweg entfernt; tatsächlicher Gerätetest noch offen |
-| Mikrofon, Spracherkennung und Headset | Offen; auf echtem iPhone zu prüfen |
-| Controller-Schreibvorgang aus der iPhone-App | Offen; in dieser Sitzung keine Verbindung zu einem realen Controller hergestellt |
-| Gemeinsamer Server | Ausführbarer Referenzcode vorhanden; kein Server bereitgestellt |
-| Nahtloses Weiterprüfen in der bestehenden PC-Erweiterung | Offen; die PC-Oberfläche ist noch an die gemeinsame API anzuschließen |
-| Codemagic / TestFlight | Version 0.1.2 für die bestehenden manuellen Workflows vorbereitet; dieser neue Stand wurde nicht hochgeladen |
-| Versionsanzeige | Version und Build werden aus der gebauten App gelesen und unter Abgleich → App angezeigt |
+| Portable Node-Tests | 81 bestanden; 72 bisherige und 9 neue Tests |
+| Geführter Test | Referenzabweichung, bestehende Kommentare, klare/negierte Zustimmungen, numerische und binäre Änderungen geprüft |
+| Serverteil | Kurzlebige Tokens, feste Werkzeuge, Authentifizierung, Schema, Antwortvalidierung, Startgrenzen mit simuliertem OpenAI-Dienst geprüft |
+| Native Ressourcen | Gemeinsame Regeln und Werkzeuge aus derselben JS-Quelle generiert und geprüft |
+| Xcode-Projekt | 15 Swift-Dateien und 4 Ressourcen, Strukturprüfung bestanden |
+| Swift | Syntax aller 15 Dateien mit Parser geprüft; kein Swift-Typecheck, kein Xcode-Build |
+| Live-KI / Audio / iPhone | Ausstehend; kein API-Schlüssel verwendet, keine kostenpflichtige Anfrage ausgeführt |
+| LOYTEC-Anmeldung 0.1.3 | Korrektur vorbereitet, realer Gerätetest ausstehend |
+| Upload / Codemagic / Veröffentlichung | Nicht durchgeführt |
 
-Die übernommenen Desktop-Interaktionstests laufen mit Fixtures der bisherigen Erweiterung. Sie belegen das Verhalten der bestehenden gemeinsamen Logik, **nicht** die native SwiftUI-Bedienung. Neue Tests prüfen zusätzlich die generierten nativen JavaScript-Ressourcen und die zentrale API.
+## Nachgereichtes Crash-Feedback
 
-Reproduzierbar ohne Anlagendaten:
+Das TestFlight-Feedback betrifft **0.1.1 (6)** auf **iOS 27.0.1**. Exception: `EXC_CRASH (SIGABRT)`, `-[__NSArrayM insertObject:atIndex:]: object cannot be nil`. Erster aussagekräftiger Framework-Frame: `UIGestureRecognizer _delayTouch:forEvent:`. Der App-Frame ist lediglich der Programmeinstieg. Das belegt eine Ausnahme bei der Touch-Verarbeitung, keinen Fehler bei der Passwortprüfung. Der konkrete Auslöser innerhalb der Browser-Eingabe bleibt ohne Geräte-Reproduktion offen.
+
+Der Nutzer hat 0.1.2 getestet: Zugangsdaten werden gespeichert, Verbindung bleibt vor dem Login stehen. Die aus der View-Hierarchie entfernte WKWebView besaß noch die voreingestellte Inaktivitätsregel. Neuere SDKs können damit ihren WebContent-Prozess sofort suspendieren. 0.1.3 setzt `inactiveSchedulingPolicy = .none` bei aktiver App und `.suspend` bei App-Hintergrund bzw. abgebrochener Anmeldung. Native Zugangsfelder bleiben erhalten. Der tatsächliche Login-Erfolg ist noch zu bestätigen.
+
+Quellen: [WebKit-Erklärung](https://bugs.webkit.org/show_bug.cgi?format=multiple&id=283794), [Apple InactiveSchedulingPolicy.none](https://developer.apple.com/documentation/webkit/wkpreferences/inactiveschedulingpolicy-swift.enum/none).
+
+Portable Prüfungen:
 
 ```sh
 npm run prepare
@@ -33,6 +28,4 @@ npm test
 python3 scripts/check_project.py
 ```
 
-Die beiden zusätzlichen LOYTEC-Tests werden nur ausgeführt, wenn `LOYTEC_SOURCE_HTML` und `LOYTEC_SOURCE_CSV` auf die ursprünglichen lokalen Dateien zeigen. Die Dateien werden nicht im Quellcodepaket gespeichert.
-
-Logik- und Strukturprüfungen ersetzen keinen Xcode-Build. Nächster Schritt ist der vorhandene manuelle Codemagic-Build und danach die Anmeldung mit gespeicherten Zugangsdaten auf dem betroffenen iPhone. Erst die Prüfungen aus `GERAETETEST.md` können das tatsächliche native Verhalten und die Behebung des gemeldeten Absturzes bestätigen.
+Die Geräteprüfungen aus `GERAETETEST.md` und `KI_GESPRAECH.md` stehen aus. Original-Feedback und Anlagendaten werden nicht in das Quellcodepaket übernommen.

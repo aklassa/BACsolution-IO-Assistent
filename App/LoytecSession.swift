@@ -23,10 +23,15 @@ private struct ControllerLoginReply: Decodable { let state: String; let message:
     private var ioRedirectAttempted = false
     private var pageTask: Task<Void, Never>?
     private var deadline: Task<Void, Never>?
+    private var phase = "Controller-Seite laden"
 
     private static func makeWebView() -> WKWebView {
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = .nonPersistent()
+        // Since newer iOS SDKs, an unattached web view is suspended immediately.
+        // This view deliberately has no touch surface, but its login/fetch promises
+        // must keep running while the app is in the foreground (iOS 17+ API).
+        configuration.preferences.inactiveSchedulingPolicy = .none
         let view = WKWebView(frame: .zero, configuration: configuration)
         view.isUserInteractionEnabled = false
         view.allowsBackForwardNavigationGestures = false
@@ -57,12 +62,13 @@ private struct ControllerLoginReply: Decodable { let state: String; let message:
         do { credentials = try ControllerCredentialStore.read(for: station) }
         catch { stopWithMessage(error.localizedDescription); return }
         loading = true
-        pageStatus = "Verbindung zum Controller wird hergestellt …"
+        phase = "Controller-Seite laden"
+        pageStatus = "1/4 · Controller-Seite laden …"
         let connection = connectionID
         deadline = Task { [weak self] in
             do { try await Task.sleep(nanoseconds: 30_000_000_000) } catch { return }
             guard let self, self.connectionID == connection, self.loading else { return }
-            self.cancelLogin(message: "Controller antwortet nicht rechtzeitig. Verbindung prüfen und erneut verbinden.")
+            self.cancelLogin(message: "Zeitüberschreitung: \(self.phase). Controller-Adresse, WLAN/VPN und Zugriff im iPhone-Browser prüfen. Danach erneut verbinden.")
         }
         loadIOPage()
     }
@@ -103,8 +109,15 @@ private struct ControllerLoginReply: Decodable { let state: String; let message:
         pageID = UUID(); pageTask?.cancel()
         ready = false; identityConfirmed = false; loading = true
     }
+    func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
+        guard webView === self.webView else { return }
+        phase = "Controller-Seite vollständig laden"
+        pageStatus = loginAttempted ? "4/4 · I/O-Testseite wird geladen …" : "1/4 · Controller antwortet. Seite wird geladen …"
+    }
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         guard webView === self.webView else { return }
+        phase = "Anmeldeseite prüfen"
+        pageStatus = "2/4 · Anmeldestatus prüfen …"
         let connection = connectionID, page = pageID
         pageTask?.cancel()
         pageTask = Task { [weak self] in
@@ -147,7 +160,8 @@ private struct ControllerLoginReply: Decodable { let state: String; let message:
             }
             // One request per explicit connection. Failure/timeouts never trigger retries.
             loginAttempted = true
-            pageStatus = "Mit gespeicherten Zugangsdaten anmelden …"
+            phase = "Gespeicherte Zugangsdaten anmelden"
+            pageStatus = "3/4 · Mit gespeicherten Zugangsdaten anmelden …"
             let result: ControllerLoginReply = try await evaluate(loginScript, request: [
                 "operation": "authenticate", "username": credentials.username, "password": credentials.password
             ])
@@ -158,7 +172,8 @@ private struct ControllerLoginReply: Decodable { let state: String; let message:
                 stopWithMessage(Self.controllerActionRequired); return
             }
             ioRedirectAttempted = true
-            pageStatus = "Anmeldung bestätigt. I/O-Testseite wird geladen …"
+            phase = "I/O-Testseite nach der Anmeldung laden"
+            pageStatus = "4/4 · Anmeldung bestätigt. I/O-Testseite laden …"
             loadIOPage()
         } catch is CancellationError { return }
         catch {
@@ -188,6 +203,12 @@ private struct ControllerLoginReply: Decodable { let state: String; let message:
         webView.stopLoading()
         loading = false; ready = false; identityConfirmed = false; credentials = nil
         pageTask?.cancel(); deadline?.cancel(); pageStatus = message
+        webView.configuration.preferences.inactiveSchedulingPolicy = .suspend
+    }
+
+    func setForeground(_ foreground: Bool) {
+        webView.configuration.preferences.inactiveSchedulingPolicy = foreground ? .none : .suspend
+        if !foreground { cancelLogin(message: "Anmeldung pausiert. In geöffneter App erneut verbinden.") }
     }
 
     func run<T: Decodable>(_ request: [String: Any]) async throws -> T {

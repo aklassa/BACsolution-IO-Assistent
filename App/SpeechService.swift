@@ -145,9 +145,12 @@ import Combine
         if handsFree && !speaking && !listening && captureID == nil { Task { await listen() } }
     }
     func stop(message: String = "Sprachbedienung gestoppt") {
+        let ownedAudio = handsFree || listening || speaking || captureID != nil || startID != nil
         generation += 1
         handsFree = false; startID = nil; cancelCapture(); cancelSpeech(); status = message
-        UIApplication.shared.isIdleTimerDisabled = false
-        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        if ownedAudio {
+            UIApplication.shared.isIdleTimerDisabled = false
+            try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        }
     }
 }

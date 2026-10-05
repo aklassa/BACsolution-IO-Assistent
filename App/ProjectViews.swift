@@ -92,7 +92,7 @@ import UIKit
                     }.disabled(model.locked)
                 }
             }
-            .onAppear { model.speech.stop(message: "Sprachbedienung während der Zugangseingabe pausiert.") }
+            .onAppear { model.stopGuided(); model.speech.stop(message: "Sprachbedienung während der Zugangseingabe pausiert.") }
             .onDisappear { password = "" }
         }
     }
@@ -138,6 +138,7 @@ struct ControllerCredentialsFields: View {
                 Section("Verbindung") {
                     if session.loading { ProgressView("Controller verbinden …") }
                     Text(session.pageStatus).font(.callout)
+                    if session.loading { Button("Verbindungsversuch abbrechen") { session.cancelLogin() } }
                     if !error.isEmpty { Text(error).foregroundStyle(.red) }
                 }
                 if editingCredentials || (!session.loading && !session.ready) {
@@ -167,6 +168,7 @@ struct ControllerCredentialsFields: View {
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Schließen") { dismiss() } } }
             .interactiveDismissDisabled(model.busy)
             .onAppear {
+                model.stopGuided()
                 model.speech.stop(message: "Sprachbedienung während der Anmeldung pausiert.")
                 guard let station = session.station else { return }
                 do {

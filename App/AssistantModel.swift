@@ -7,6 +7,12 @@ import Combine
     let speech: SpeechService
     let sync: SyncService
     let language: LanguageEngine?
+    let voice = RealtimeService()
+    @Published var observedAddress: String?
+    @Published var voiceProposal: VoiceProposal?
+    var observationTask: Task<Void, Never>?
+    var observationID = UUID()
+    private var voiceForwarding: AnyCancellable?
     @Published var projectID: String?
     @Published var stationID: String?
     @Published var selectedAddress: String?
@@ -17,7 +23,7 @@ import Combine
     private var pendingTermRevision: Int?
     @Published var reviewPoint: IOPoint?
     @Published var showLogin = false
-    @Published private(set) var busy = false
+    @Published var busy = false
     @Published var message = "Projekt und Station auswählen."
     private var forwarding: AnyCancellable?
     private var audioGeneration = 0
@@ -25,6 +31,13 @@ import Combine
         self.store = store; self.session = session; self.speech = speech; self.sync = sync
         do { language = try LanguageEngine() } catch { language = nil; message = error.localizedDescription }
         forwarding = store.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }
+        voiceForwarding = voice.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }
+        voice.onTool = { [weak self] name, args in
+            guard let self else { throw AppFailure("Prüfsitzung beendet.") }
+            return try await self.guidedTool(name, args)
+        }
+        voice.onUser = { [weak self] text in try await self?.guidedUser(text) }
+        voice.onStopped = { [weak self] in self?.stopObservation(); self?.voiceProposal = nil }
         speech.onFinal = { [weak self] text in Task { await self?.command(text) } }
     }
     var project: Project? { store.projects.first { $0.id == projectID } }
@@ -35,22 +48,22 @@ import Combine
         return store.data.drafts.first { $0.id == "\(stationID):\(selected.address)" }
     }
     var locked: Bool { busy || sync.busy || store.loadFailure != nil }
-    private func rules() throws -> LanguageEngine {
+    func rules() throws -> LanguageEngine {
         guard let language else { throw AppFailure("Sprachauswertung konnte nicht gestartet werden.") }; return language
     }
-    private func termObject() throws -> Any { try JSON.object(store.vocabulary.terms) }
+    func termObject() throws -> Any { try JSON.object(store.vocabulary.terms) }
     func connect(project: Project, station: Station) {
         guard !locked else { return }
-        speech.stop(); projectID = project.id; stationID = station.id
+        stopGuided(); speech.stop(); projectID = project.id; stationID = station.id
         selectedAddress = nil; candidates = []; suggestions = []; pendingTerm = nil; reviewPoint = nil
         points = store.data.cache.first { $0.stationID == station.id }?.points ?? []
         message = points.isEmpty ? "Bitte am Controller anmelden." : "Gespeicherter Stand. Für aktuelle Werte verbinden."
         session.connect(station); showLogin = true
     }
-    func choose(_ point: IOPoint) { guard !locked else { return }; selectedAddress = point.address; candidates = []; suggestions = []; pendingTerm = nil }
+    func choose(_ point: IOPoint) { guard !locked else { return }; stopGuided(); selectedAddress = point.address; candidates = []; suggestions = []; pendingTerm = nil }
     private func tell(_ text: String) {
         message = text
-        if audioGeneration == speech.generation { speech.say(text) }
+        if !voice.active && audioGeneration == speech.generation { speech.say(text) }
     }
     func report(_ error: Error) { message = error.localizedDescription }
     private func perform(_ work: () async throws -> Void) async {
@@ -59,21 +72,23 @@ import Combine
         defer { busy = false; speech.resumeIfNeeded() }
         do { try await work() } catch { tell(error.localizedDescription) }
     }
-    private func refresh() async throws {
+    func refresh() async throws {
         guard let station, session.station?.id == station.id, session.station?.origin == station.origin,
               session.station?.identity == station.identity, session.station?.configuration == station.configuration else {
             throw AppFailure("Die gewählte Station muss zuerst neu verbunden werden.")
         }
         let fresh = try await session.readAll()
+        try Task.checkCancellation()
         try store.cache(fresh, stationID: station.id)
         points = fresh
     }
     func reload() async { await perform { try await self.refresh(); self.message = "\(self.points.count) Datenpunkte vom Controller gelesen." } }
     func stage(result: Int? = nil, comment: String? = nil) {
         guard !locked else { return }
+        stopGuided()
         do { try stageInternal(result: result, comment: comment) } catch { report(error) }
     }
-    private func stageInternal(result: Int? = nil, comment: String? = nil) throws {
+    func stageInternal(result: Int? = nil, comment: String? = nil) throws {
         guard candidates.isEmpty, pendingTerm == nil else { throw AppFailure("Zuerst die offene Auswahl beantworten oder abbrechen.") }
         guard let selected, let stationID else { throw AppFailure("Zuerst einen Datenpunkt auswählen.") }
         var value = draft ?? Draft(stationID: stationID, base: selected, comment: selected.testComment)
@@ -102,7 +117,7 @@ import Combine
         }
         try speakPoint(now)
     }
-    private func lookup(_ query: String) async throws {
+    func lookup(_ query: String) async throws {
         candidates = []; suggestions = []; pendingTerm = nil; selectedAddress = nil
         try await refresh()
         let result = try rules().decode(SearchResult.self, operation: "search", arguments: ["points": JSON.object(points), "text": query, "terms": termObject()])
@@ -116,9 +131,10 @@ import Combine
         } else { tell("Kein passender Datenpunkt in dieser Station gefunden. Bitte Anlagenbezeichnung oder Klemme ergänzen.") }
     }
     func chooseCandidate(_ index: Int) async {
+        if voice.active { voice.submit("Treffer \(index + 1)"); return }
         await perform { try await self.chooseCandidateInternal(index) }
     }
-    private func chooseCandidateInternal(_ index: Int) async throws {
+    func chooseCandidateInternal(_ index: Int) async throws {
         guard candidates.indices.contains(index) else { throw AppFailure("Diese Treffernummer gibt es nicht.") }
         let before = candidates[index]
         try await refresh()
@@ -127,8 +143,8 @@ import Combine
         }
         candidates = []; selectedAddress = point.address; try speakPoint(point)
     }
-    func save() async { await perform { try await self.saveInternal() } }
-    private func saveInternal() async throws {
+    func save() async { stopGuided(); await perform { try await self.saveInternal() } }
+    func saveInternal() async throws {
         guard candidates.isEmpty, pendingTerm == nil else { throw AppFailure("Zuerst die offene Auswahl beantworten oder abbrechen.") }
         guard let station, let project, var pending = draft, pending.changed else { throw AppFailure("Kein geänderter Prüfentwurf vorhanden.") }
         guard !pending.needsReview else { throw AppFailure("Letzter Speicherauftrag ist unbestätigt. Zuerst neu lesen und Entwurf prüfen.") }
@@ -136,6 +152,7 @@ import Combine
               session.station?.origin == station.origin, session.station?.configuration == station.configuration else { throw AppFailure("Station neu verbinden.") }
         guard !store.data.technician.trimmingCharacters(in: .whitespaces).isEmpty else { throw AppFailure("Zuerst in den Einstellungen den Prüfernamen eintragen.") }
         try await refresh()
+        try Task.checkCancellation()
         guard let current = points.first(where: { $0.address == pending.base.address }), current.sameAssignment(as: pending.base) else {
             throw AppFailure("Zuordnung wurde geändert. Prüfentwurf vor dem Speichern prüfen.")
         }
@@ -163,6 +180,7 @@ import Combine
         tell("Prüfdaten vom Controller bestätigt und lokal gespeichert. Gemeinsamer Abgleich steht noch aus.")
     }
     func prepareReview() async {
+        stopGuided()
         await perform {
             guard let pending = self.draft else { throw AppFailure("Kein Entwurf vorhanden.") }
             try await self.refresh()
@@ -183,6 +201,7 @@ import Combine
         } catch { report(error) }
     }
     func discardDraft() {
+        stopGuided()
         do { if let draft { try store.removeDraft(draft.id) }; message = "Entwurf verworfen." } catch { report(error) }
     }
     func effectiveTerms() throws -> [Term] {
@@ -197,6 +216,7 @@ import Combine
         try store.saveVocabulary(Vocabulary(terms: checked))
     }
     func command(_ text: String) async {
+        if voice.active { voice.submit(text); return }
         await perform { try await self.execute(text) }
     }
     private func execute(_ text: String) async throws {

@@ -13,6 +13,7 @@ import SwiftUI
                 Text(model.project?.name ?? "Unter Projekte eine Station öffnen.").foregroundStyle(.secondary)
                 if let station = model.station {
                     Button("Controller-Anmeldung öffnen", systemImage: "network") {
+                        model.stopGuided()
                         if session.station?.id != station.id { session.connect(station) }
                         model.showLogin = true
                     }.disabled(model.locked)
@@ -20,13 +21,34 @@ import SwiftUI
                 Text(model.message).font(.callout).accessibilityLabel("Assistent: " + model.message)
                 if model.busy { ProgressView("Vorgang läuft …") }
             }
-            Section("Sprechen oder eingeben") {
+            Section("Gemeinsam mit KI prüfen") {
+                Text(model.voice.status).font(.callout)
+                if model.voice.active {
+                    Button("KI-Gespräch beenden", systemImage: "stop.circle.fill") { model.stopGuided() }
+                    if !model.voice.transcript.isEmpty { Text("Du: \(model.voice.transcript)").font(.callout) }
+                    if !model.voice.answer.isEmpty { Text("Assistent: \(model.voice.answer)").font(.callout) }
+                } else {
+                    Button("KI-Gespräch starten", systemImage: "waveform") { Task { await model.startGuided() } }
+                        .buttonStyle(.borderedProminent).disabled(model.locked || !session.identityConfirmed)
+                    Text("Zum Beispiel: Wir prüfen die Zulufttemperatur von Anlage zwei eins. Beobachte den Wert, ich erwärme den Fühler.").font(.caption).foregroundStyle(.secondary)
+                }
+                if model.observedAddress != nil {
+                    Label("Wertbeobachtung aktiv · alle 3 Sekunden", systemImage: "eye")
+                    Button("Beobachtung beenden") { model.stopObservation() }
+                }
+                if let proposal = model.voiceProposal {
+                    Text("Noch nicht gespeichert").font(.headline)
+                    Text(proposal.comment)
+                    Text("Nach dem Vorlesen Ja oder Nein sagen. Zum Korrigieren zuerst Nein sagen.").font(.caption)
+                }
+            }
+            Section(model.voice.active ? "Text zum KI-Gespräch" : "Sprechen oder eingeben") {
                 HStack {
                     TextField("Wert von Zulufttemperatur Anlage 2.1", text: $command, axis: .vertical)
                     Button("Senden", systemImage: "arrow.up.circle.fill") { let text = command; command = ""; Task { await model.command(text) } }
-                        .labelStyle(.iconOnly).disabled(command.isEmpty || model.locked)
+                        .labelStyle(.iconOnly).disabled(command.isEmpty || model.locked || model.voice.confirming)
                 }
-                HStack {
+                if !model.voice.active { HStack {
                     Button(speech.listening ? "Fertig" : "Sprechen", systemImage: speech.listening ? "stop.circle" : "mic.fill") {
                         if speech.listening { speech.finishCapture() } else { Task { await speech.listen() } }
                     }.buttonStyle(.bordered).disabled(model.locked)
@@ -37,6 +59,7 @@ import SwiftUI
                 Text(speech.status).font(.caption).foregroundStyle(.secondary)
                 if !speech.transcript.isEmpty { Text("Erkannt: \(speech.transcript)").font(.caption) }
                 if speech.speaking || speech.listening || speech.handsFree { Button("Sprachbedienung stoppen") { speech.stop() } }
+                }
             }
             if !model.candidates.isEmpty {
                 Section("Bitte Datenpunkt bestätigen") {

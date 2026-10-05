@@ -8,6 +8,11 @@ Diese Liste beschreibt ausstehende Abnahmen, keine bereits bestandenen Hardwaret
 | Account und Passwort bei neuem Projekt / weiterer Station eingeben | Native Felder reagieren ohne Absturz; Zugangsdaten werden pro Station gespeichert |
 | Bestehende Station aus 0.1.1 öffnen | Daten bleiben erhalten; Zugangsdaten können einmalig ergänzt werden |
 | LOYTEC 8.4.20 anmelden | Automatischer Login lädt die I/O-Testseite; keine Eingabe in der eingebetteten Website nötig |
+| 0.1.3 mit gespeicherten Zugangsdaten öffnen | Phasen laufen durch; unsichtbare WebKit-Sitzung arbeitet bei geöffneter App weiter |
+| Controller unerreichbar, 30 Sekunden warten | Zeitüberschreitung mit Phase; Abbrechen und erneutes Verbinden möglich |
+| KI-Modus mit eingerichtetem Server | Beispielablauf in KI_GESPRAECH.md einschließlich Referenzmessung und bestätigtem Kommentar durchläuft alle Schritte |
+| KI fragt nach Speicherung | Mikrofon erst nach vollständigem Vorlesen aktiv; nur eindeutige abschließende Zustimmung speichert |
+| „Ja, aber nicht speichern“ / falsche Einheit / parallele Kommentaränderung | Keine ungefragte oder widersprüchliche Speicherung |
 | App vollständig beenden, öffnen und Station erneut verbinden | Gespeicherte Zugangsdaten werden wiederverwendet |
 | Zugangsdaten ändern | Neuer Account / neues Passwort werden gespeichert; frische Controller-Sitzung wird aufgebaut |
 | Absichtlich falsches Passwort an einem freigegebenen Testkonto | Verständliche Ablehnung; pro Verbindungsauftrag nur ein Versuch, keine automatische Wiederholung |

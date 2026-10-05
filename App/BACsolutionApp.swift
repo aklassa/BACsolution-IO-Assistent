@@ -25,6 +25,7 @@ import SwiftUI
     @EnvironmentObject var model: AssistantModel
     @EnvironmentObject var store: ProjectStore
     @EnvironmentObject var speech: SpeechService
+    @EnvironmentObject var session: LoytecSession
     @Environment(\.scenePhase) var scenePhase
     @State private var tab = 0
     var body: some View {
@@ -43,7 +44,11 @@ import SwiftUI
         .sheet(isPresented: $model.showLogin) { LoginView() }
         .sheet(item: $model.reviewPoint) { point in ReviewView(point: point) }
         .onChange(of: scenePhase) { phase in
-            if phase == .background { speech.stop(message: "Sprachsitzung pausiert. In geöffneter App erneut starten.") }
+            if phase == .background {
+                model.stopGuided(); speech.stop(message: "Sprachsitzung pausiert. In geöffneter App erneut starten.")
+                session.setForeground(false)
+            } else if phase == .active { session.setForeground(true) }
         }
+        .onChange(of: tab) { value in if value != 1 { model.stopGuided() } }
     }
 }

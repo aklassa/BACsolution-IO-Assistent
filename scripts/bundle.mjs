@@ -4,13 +4,17 @@ import { fileURLToPath } from 'node:url';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = name => fs.readFileSync(path.join(root, 'Shared', name), 'utf8');
 const plain = text => text.replace(/^import .*?;\s*$/gm, '').replace(/^export /gm, '');
-const core = ['language.js', 'model.js', 'vocabulary.js'].map(n => plain(read(n))).join('\n');
+const core = ['language.js', 'model.js', 'vocabulary.js', 'guided.js'].map(n => plain(read(n))).join('\n');
 const facade = `
 function mobileCall(json) {
   try {
     const r = JSON.parse(json), knowledge = { terms: r.terms || [] };
     let value;
     switch (r.operation) {
+      case 'guidedConfiguration': value = {instructions:guidedInstructions, tools:guidedTools}; break;
+      case 'guidedConfirmation': value = guidedConfirmation(r.text); break;
+      case 'guidedComment': value = guidedComment(r); break;
+      case 'guidedChange': value = guidedChange(r); break;
       case 'command': value = commandFrom(r.text, knowledge); break;
       case 'search': value = searchPoints(r.points, r.text, knowledge); break;
       case 'spoken': value = spokenName(r.text, knowledge.terms); break;

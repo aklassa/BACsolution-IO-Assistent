@@ -1,10 +1,14 @@
-# BACsolution I/O-Assistent – Arbeitsstand 0.1.2
+# BACsolution I/O-Assistent – Arbeitsstand 0.1.3
 
-Unveröffentlichter Quellcode für eine native iPhone-App ab iOS 17. Zielgerät der Controller-Anbindung: **LOYTEC LIOB-589, Firmware 8.4.20**. Die vorhandene Desktop-Erweiterung und deren veröffentlichte ZIP-Datei wurden durch diese Vorbereitung nicht geändert.
+Unveröffentlichter Quellcode für eine native iPhone-App ab iOS 17. Controller-Anbindung: LOYTEC LIOB-589, Firmware 8.4.20. Keine aktive Ausgangsansteuerung.
 
-**Status 0.1.2:** Die Controller-Anmeldung wurde nach dem gemeldeten Absturz beim Antippen der Web-Eingabefelder umgebaut. Account und Passwort werden in nativen App-Feldern erfasst und pro Station im iOS-Schlüsselbund gespeichert. Dieser neue Arbeitsstand ist lokal auf Logik und Projektstruktur geprüft; Xcode-Build und Gerätetest stehen noch aus. Der genaue ursprüngliche Absturzgrund ist ohne iPhone-Absturzprotokoll nicht belegt. Der gemeinsame Speicher ist als optionaler Client und ausführbarer Referenzdienst enthalten; es ist kein Server eingerichtet. Die bestehende PC-Erweiterung verwendet den Abgleichdienst noch nicht.
+**Stand 0.1.3:** Behebt eine plausible Ursache des in 0.1.2 gemeldeten Anmeldestillstands: Die unsichtbare WebKit-Sitzung darf bei geöffneter App weiterarbeiten. Fortschritt und Abbruch sind im Verbindungsdialog sichtbar. Die tatsächliche Behebung muss am Controller bestätigt werden.
 
-**Codemagic/TestFlight:** Für den bisherigen Stand 0.1.1 wurden ein erfolgreicher Codemagic-Simulator-Build und der App-Start auf dem iPhone vom Anwender gezeigt. Version **0.1.2** ist als nächstes Update vorbereitet. Version und Buildnummer stehen unter **Abgleich → App**. Die bestehenden manuellen Workflows bleiben verwendbar. Die Update-Anleitung steht in `docs/UPDATE_0.1.2.md`. Dieser Arbeitsstand wurde nicht hochgeladen oder veröffentlicht.
+Zusätzlich vorbereitet: ein optionales KI-Gespräch mit natürlicher Datenpunktsuche, Rückfragen, Wertbeobachtung und Referenzvergleich. Die App liest Prüfkommentare vor und speichert sie nur nach ausdrücklicher Bestätigung mit separatem Controller-Readback. Die erste KI-Version setzt keine Prüfstatus automatisch und schaltet keine Ausgänge. Ein eigener HTTPS-Dienst mit OpenAI-API-Zugang ist erforderlich und noch nicht eingerichtet.
+
+**Validierung:** 81 portable Tests bestanden; Projektstruktur und Syntax aller 15 Swift-Dateien geprüft. Kein Xcode-Build und kein Live-Test mit OpenAI oder dem Controller für diesen Stand. 0.1.2 wurde vom Nutzer installiert: Speicherung der Zugangsdaten funktioniert, Anmeldung blieb hängen. Das nachgereichte Crashlog betrifft 0.1.1 (6), iOS 27.0.1, und zeigt eine UIKit-Touch-Ausnahme, keine belegte Passwort- oder Anmeldeprüfung als Ursache.
+
+**Codemagic/TestFlight:** Bestehende manuelle Workflows und Signierung unverändert. Update-Anleitung: `docs/UPDATE_0.1.3.md`; KI-Einrichtung: `docs/KI_GESPRAECH.md`. Keine Veröffentlichung, kein Upload und kein kostenpflichtiger API-Aufruf durch diese Bearbeitung.
 
 ## Enthalten
 
@@ -14,8 +18,8 @@ Unveröffentlichter Quellcode für eine native iPhone-App ab iOS 17. Zielgerät 
 - Controller-Passwörter liegen ausschließlich im gerätegebundenen Schlüsselbund, getrennt nach Stations-ID und Controller-Adresse einschließlich Protokoll und Port. Projektdateien, Prüfergebnisse und Serverabgleich enthalten keine Zugangsdaten. Auf weiteren iPhones ist eine einmalige Eingabe erforderlich.
 - Lesen aller von der Station angebotenen I/O-Busse. Suche über Namen, Beschreibung, Klemme, Gerät und Bus. Ein- und Ausgänge werden angezeigt; aktive Ausgangsansteuerung ist nicht implementiert.
 - 58 vorbelegte Begriffe aus dem bisherigen Arbeitsstand, eigene Ergänzungen und deaktivierbare Begriffe. Weitere Bezeichnungen stehen einzeln untereinander. Das Verzeichnis gilt für alle Projekte der App.
-- Native Spracherkennung und Sprachausgabe, einschließlich Bluetooth-HFP-Kopfhörern. Halbduplex: während der Sprachausgabe wird nicht zugehört. Nur abgeschlossene Erkennungsergebnisse werden als Befehle verarbeitet.
-- Lokale Prüfentwürfe, die App-Neustarts überstehen. Ergebnisse und Kommentare werden erst nach ausdrücklichem „Speichern“ bzw. Antippen zum Controller übertragen.
+- Lokaler Sprachmodus mit Apple-Spracherkennung und Sprachausgabe. Zusätzlich optionaler KI-Modus mit direktem Realtime-Audio, Unterbrechungen und Funktionsaufrufen. Bestätigungen verwenden ausschließlich abgeschlossene Transkripte. Das lokale Vorlesen des vollständigen Kommentars pausiert vorübergehend das Mikrofon.
+- Lokale Prüfentwürfe, die App-Neustarts überstehen. Im lokalen Modus werden Ergebnisse und Kommentare nach ausdrücklichem „Speichern“ bzw. Antippen übertragen. Im KI-Modus gilt ein klares „Ja“ ausschließlich für den gerade vollständig vorgelesenen, unveränderten Kommentarentwurf.
 - Vorprüfung gegen die bisherigen Controller-Prüfdaten, anschließendes separates Zurücklesen. Datum vergibt ausschließlich der Controller. Unsichere Schreibaufträge werden nicht automatisch wiederholt.
 - Getrennte Speicherung von „lokaler Entwurf“, „Controller bestätigt“ und „gemeinsam gespeichert“. Konflikte und ausstehende Abgleiche bleiben sichtbar.
 - Optionaler HTTPS-Abgleichclient und ein Node-Referenzdienst für Projekte, globale Begriffe und bestätigte Prüfhistorie. Keine automatischen Controller-Schreibaufträge aus der zentralen Datenbank.
@@ -48,7 +52,7 @@ Unter Windows können Quellcode und JavaScript-Tests bearbeitet werden. Der nati
 
 Die App bleibt für die Headset-Sitzung geöffnet und verhindert dabei den automatischen Ruhezustand. Sperren, App-Wechsel, Audio-Unterbrechungen oder das Trennen des Headsets pausieren die Sitzung. Hintergrundbetrieb bei gesperrtem iPhone und Headset-Tastensteuerung sind noch nicht umgesetzt. Die Sprachfunktion startet nicht selbständig nach einer Unterbrechung.
 
-Lokale deutsche Spracherkennung ist der Standard und hängt von Gerät und verfügbarer Sprachunterstützung ab. Ohne diese Unterstützung bleibt die Texteingabe nutzbar. Online-Erkennung durch Apple lässt sich ausdrücklich erlauben. Die App speichert keine Audiodateien. Die Befehls- und Begriffsauswertung verwendet die übernommenen lokalen Regeln; ein externer KI-Dienst ist nicht eingebunden.
+Lokale deutsche Spracherkennung ist der Standard und hängt von Gerät und verfügbarer Sprachunterstützung ab. Ohne diese Unterstützung bleibt die Texteingabe nutzbar. Online-Erkennung durch Apple lässt sich ausdrücklich erlauben. Die App speichert keine Audiodateien. Der lokale Modus verwendet die übernommenen Befehlsregeln. Der neue KI-Modus wird gesondert freigegeben und gestartet; Sprache sowie benötigte Punktdaten werden dabei an OpenAI übertragen. Die gemeinsame Begriffsliste bleibt die Grundlage der Suche. Einrichtung und Grenzen stehen in `docs/KI_GESPRAECH.md`.
 
 ## Gemeinsamer Datenbestand und PC
 

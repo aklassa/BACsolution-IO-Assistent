@@ -84,6 +84,7 @@ import SwiftUI
 }
 
 @MainActor struct SyncView: View {
+    @AppStorage("voiceCloudAllowed") private var voiceCloudAllowed = false
     @EnvironmentObject var store: ProjectStore
     @EnvironmentObject var model: AssistantModel
     @EnvironmentObject var sync: SyncService
@@ -99,6 +100,13 @@ import SwiftUI
                 LabeledContent("Build", value: AppVersion.build)
             }
             Section("Prüfer") { TextField("Name / Kürzel", text: $technician) }
+            Section("KI-Gespräch") {
+                Toggle("KI-Gespräch mit OpenAI erlauben", isOn: $voiceCloudAllowed)
+                    .onChange(of: voiceCloudAllowed) { _ in model.stopGuided() }
+                Text("Beim Start werden Sprache, benötigte Datenpunktinformationen und die globale Begriffsliste an OpenAI übertragen. Die Antworten werden von einer KI gesprochen. Controller-Passwörter werden nicht übertragen.").font(.caption)
+                Text("Verwendet die unten eingetragene Server-Adresse und den Zugangsschlüssel. Der Server benötigt zusätzlich einen OpenAI-API-Schlüssel. Eine Test-Sitzung endet nach spätestens 10 Minuten; sie kann anschließend neu gestartet werden.").font(.caption)
+                Text("Prüfkommentare werden zur Bestätigung mit der lokalen iPhone-Stimme vorgelesen. Während dieses Vorlesens pausiert das Mikrofon. Erst danach Ja oder Nein sagen.").font(.caption)
+            }
             Section("Sprache und Kopfhörer") {
                 Toggle("Online-Spracherkennung erlauben", isOn: $speech.allowOnlineRecognition)
                     .onChange(of: speech.allowOnlineRecognition) { _ in speech.stop() }
@@ -110,6 +118,7 @@ import SwiftUI
                 SecureField("Zugangsschlüssel", text: $token).textInputAutocapitalization(.never).autocorrectionDisabled()
                 Text("Der vorbereitete Abgleichdienst muss zuerst eingerichtet werden. Hier ist noch kein Cloud-Dienst hinterlegt.").font(.caption)
                 Button("Einstellungen speichern") {
+                    model.stopGuided()
                     do {
                         let address = serverURL.trimmingCharacters(in: .whitespacesAndNewlines)
                         if !address.isEmpty { _ = try SyncService.checkedURL(address) }
@@ -120,6 +129,7 @@ import SwiftUI
                 }.disabled(model.locked)
                 if !error.isEmpty { Text(error).font(.callout) }
                 Button("Jetzt abgleichen", systemImage: "arrow.triangle.2.circlepath") {
+                    model.stopGuided()
                     speech.stop()
                     if let engine = model.language { Task { await sync.sync(store: store, engine: engine) } }
                 }.disabled(model.locked || store.data.serverURL.isEmpty)

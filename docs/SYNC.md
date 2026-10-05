@@ -17,6 +17,8 @@ Optionale Umgebungsvariablen:
 | `BAC_IO_SYNC_TOKEN` | keiner | Erforderlicher Zugangsschlüssel, mindestens 32 Zeichen |
 | `BAC_IO_PORT` | `8787` | Port auf `127.0.0.1` |
 | `BAC_IO_DATA_FILE` | `./var/workspace.json` | Persistente Datei; nicht ins Quellcode-Repository übernehmen |
+| `OPENAI_API_KEY` | keiner | Optional; KI-Sitzungen ermöglichen, ausschließlich am Server setzen |
+| `BAC_IO_VOICE_MODEL` | `gpt-realtime` | Realtime-Modell für den optionalen KI-Test |
 
 Ein Serverprozess besitzt diese Datei. Mehrere Prozesse oder Serverinstanzen dürfen sie nicht gleichzeitig verändern. Änderungen werden innerhalb eines Prozesses serialisiert und über eine temporäre Datei ersetzt. Die Datei enthält Historie und Wiederholungsbelege und muss vollständig gesichert werden. Unlesbare Daten werden nicht durch eine leere Datenbank ersetzt.
 
@@ -37,6 +39,7 @@ Content-Type: application/json
 | `GET /v1/state` | Gemeinsamen Stand lesen | `{workspaceID, documents, results}` |
 | `POST /v1/documents` | Projekt oder globale Begriffsliste mit Revisionsprüfung schreiben | Bestätigtes Dokument oder HTTP 409 mit `current` |
 | `POST /v1/results` | Bestätigten Prüfeintrag ergänzen | Eintrag mit `serverStoredAt` |
+| `POST /v1/voice/session` | KI-Sitzung anfordern, Body `{}` | Kurzlebiges Token, Modell und Testdauer; siehe `KI_GESPRAECH.md` |
 
 Ein Dokumentauftrag enthält `id` (einmalige Änderungs-ID), `documentID`, `kind`, `baseRevision` und `payload`. `payload` ist ein JSON-String. Das Format ist in `App/Models.swift` und in der Servervalidierung definiert; Beispiele werden in `Tests/sync.test.mjs` ausgeführt. Ein bestätigtes Dokument enthält `id` (Dokument-ID), `kind`, `revision` und `payload`.
 
