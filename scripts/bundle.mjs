@@ -33,6 +33,6 @@ fs.writeFileSync(path.join(root, 'Resources', 'LanguageCore.js'), '// Generated 
 fs.writeFileSync(path.join(root, 'Resources', 'ControllerBridge.js'), plain(read('protocol.js')) + '\nreturn JSON.stringify(await controllerTask(request));\n');
 fs.writeFileSync(path.join(root, 'Resources', 'ControllerLogin.js'), plain(read('login.js')) + `
 try { return JSON.stringify(await controllerLogin(request)); }
-catch (error) { return JSON.stringify({state:'error', message:String(error.message || 'Controller-Anmeldung fehlgeschlagen.')}); }
+catch { return JSON.stringify({state:'error', code:'login-bridge-error', message:'Anmeldebrücke konnte nicht ausgeführt werden. Verbindungsdiagnose kopieren.'}); }
 `);
 console.log('Native JavaScript-Ressourcen erstellt.');

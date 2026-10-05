@@ -1,14 +1,14 @@
-# BACsolution I/O-Assistent – Arbeitsstand 0.1.4
+# BACsolution I/O-Assistent – Arbeitsstand 0.1.5
 
 Unveröffentlichter Quellcode für eine native iPhone-App ab iOS 17. Controller-Anbindung: LOYTEC LIOB-589, Firmware 8.4.20. Keine aktive Ausgangsansteuerung.
 
-**Stand 0.1.4:** Der gemeldete HTTPS-Versuch scheitert an einem von iOS nicht bestätigten Controller-Zertifikat. Dafür gibt es nun eine ausdrückliche Freigabe anhand des SHA-256-Fingerabdrucks, gebunden an Station, HTTPS-Adresse und Zertifikat. Der HTTP-Screenshot zeigt einen Stillstand beim Laden; seine genaue Ursache ist noch offen. Der Controller-Transport wird jetzt an das App-Fenster angebunden, erhält einen TCP-Porttest und eine kopierbare Diagnose. Der tatsächliche Login-Erfolg muss am Controller bestätigt werden.
+**Stand 0.1.5:** Der Gerätelog von 0.1.4 (9) bestätigt TCP-Zugriff und HTTP 200. Die App beendet den Versuch bei der Anmeldeprüfung; der bisherige kopierte Log verliert dabei den Abbruchgrund. Das ist korrigiert: Fehlermeldung und Diagnosecode erscheinen direkt im Verbindungsdialog und im kopierten Bericht. Sichere Seitenmerkmale zeigen, welche Teile der Anmeldung vorhanden sind. Ein verzögerter Formularaufbau wird bis zu drei Sekunden abgewartet. Ein eindeutig erkanntes LOYTEC-Formular benötigt nicht mehr zwingend den alten globalen LoginPage-Konstruktor. Welche Ursache auf dem tatsächlichen Controller vorliegt und ob der Login damit gelingt, muss der nächste Gerätetest zeigen.
 
 Zusätzlich vorbereitet: ein optionales KI-Gespräch mit natürlicher Datenpunktsuche, Rückfragen, Wertbeobachtung und Referenzvergleich. Die App liest Prüfkommentare vor und speichert sie nur nach ausdrücklicher Bestätigung mit separatem Controller-Readback. Die erste KI-Version setzt keine Prüfstatus automatisch und schaltet keine Ausgänge. Ein eigener HTTPS-Dienst mit OpenAI-API-Zugang ist erforderlich und noch nicht eingerichtet.
 
-**Validierung:** 82 portable Tests bestanden. Der zusätzliche native Zertifikatstest benötigt macOS/Swift und wird in den vorhandenen Codemagic-Workflows durch `npm test` ausgeführt; lokal übersprungen. Projektstruktur und Syntax von 18 App-Swift-Dateien und einer Swift-Testdatei geprüft. Kein Xcode-Build und kein Live-Test mit OpenAI oder dem Controller für diesen Stand. Das ursprüngliche Crashlog betrifft 0.1.1 (6), iOS 27.0.1, und zeigt eine UIKit-Touch-Ausnahme; der konkrete Auslöser ist nicht bewiesen.
+**Validierung:** 89 portable Tests bestanden. Der zusätzliche native Zertifikatstest benötigt macOS/Swift und wird in den vorhandenen Codemagic-Workflows durch `npm test` ausgeführt; lokal übersprungen. Projektstruktur und Syntax von 18 App-Swift-Dateien und einer Swift-Testdatei geprüft. Kein Xcode-Build und kein Live-Test mit OpenAI oder dem Controller für diesen Stand. Das ursprüngliche Crashlog betrifft 0.1.1 (6), iOS 27.0.1, und zeigt eine UIKit-Touch-Ausnahme; der konkrete Auslöser ist nicht bewiesen.
 
-**Codemagic/TestFlight:** Bestehende manuelle Workflows und Signierung unverändert. Update-Anleitung: `docs/UPDATE_0.1.4.md`; KI-Einrichtung: `docs/KI_GESPRAECH.md`. Keine Veröffentlichung, kein Upload und kein kostenpflichtiger API-Aufruf durch diese Bearbeitung.
+**Codemagic/TestFlight:** Bestehende manuelle Workflows und Signierung unverändert. Update-Anleitung: `docs/UPDATE_0.1.5.md`; KI-Einrichtung: `docs/KI_GESPRAECH.md`. Keine Veröffentlichung, kein Upload und kein kostenpflichtiger API-Aufruf durch diese Bearbeitung.
 
 ## Enthalten
 

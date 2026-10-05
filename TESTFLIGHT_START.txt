@@ -1,4 +1,4 @@
-BACsolution I/O-Assistent – Testversion 0.1.4
+BACsolution I/O-Assistent – Testversion 0.1.5
 Stand: 5. Oktober 2026
 
 Dieses Paket enthält den Quellcode für Codemagic. Es ist noch keine
@@ -6,6 +6,13 @@ installierbare IPA und wurde noch nicht zu TestFlight hochgeladen.
 
 Kopierfertige Windows-PowerShell-Befehle und die Codemagic-Einrichtung
 stehen in CODEMAGIC_BEFEHLE.txt. Du übernimmst Upload und Buildstart selbst.
+
+Bei einem BESTEHENDEN Projekt zuerst docs/UPDATE_0.1.5.md verwenden:
+Update-Dateien in C:\BACsolution_IO_iPhone_Arbeitsstand ersetzen,
+committen, pushen und den vorhandenen Codemagic-Workflow starten.
+Auf dem iPhone nach der Installation Version 0.1.5 pruefen, einmal verbinden
+und bei einem Abbruch direkt in der Fehlermeldung Diagnose kopieren waehlen.
+Die folgenden nummerierten Schritte beschreiben nur die Ersteinrichtung.
 
 1. ZIP entpacken. Den INHALT des Projektordners in ein eigenes privates
    GitHub-Repository für den I/O-Assistenten hochladen. codemagic.yaml muss
@@ -26,7 +33,7 @@ stehen in CODEMAGIC_BEFEHLE.txt. Du übernimmst Upload und Buildstart selbst.
 4. Nach erfolgreichem ios-check den Workflow ios-testflight-internal
    starten (Name: BACsolution IO - internes TestFlight).
    Er erstellt und signiert die IPA und lädt sie zu App Store Connect hoch.
-   Version: 0.1.4. Die Buildnummer vergibt Codemagic automatisch.
+   Version: 0.1.5. Die Buildnummer vergibt Codemagic automatisch.
 
 5. Nach Apples Verarbeitung den Build in App Store Connect der eigenen
    internen Testgruppe zuweisen. Auf dem iPhone über TestFlight installieren.
@@ -53,7 +60,7 @@ Bekannte Grenzen
 - Headset-Sitzung pausiert beim Sperren oder App-Wechsel.
 - Zentraler Server ist nicht bereitgestellt; die bestehende PC-Erweiterung
   ist noch nicht mit ihm verbunden.
-- Die erste Kompilierung mit Xcode sowie iPhone-/Headset-Tests stehen aus.
+- Xcode-Kompilierung und iPhone-/Headset-Tests dieses Updates stehen aus.
 
 Bei einem Codemagic-Fehler das Build-Log und die Workflow-ID bereitstellen.
 API-Schlüssel und Zertifikate ausschließlich in Codemagic hinterlegen.

@@ -138,7 +138,14 @@ struct ControllerCredentialsFields: View {
                 }
                 Section("Verbindung") {
                     if session.loading { ProgressView("Controller verbinden …") }
-                    Text(session.pageStatus).font(.callout)
+                    if let code = session.failureCode {
+                        Label("Verbindung beendet", systemImage: "exclamationmark.triangle.fill").foregroundStyle(.red)
+                        Text(session.pageStatus).font(.callout).foregroundStyle(.red).textSelection(.enabled)
+                        Text("Diagnosecode: \(code)").font(.caption).foregroundStyle(.secondary)
+                        Button("Diagnose kopieren", systemImage: "doc.on.doc") { UIPasteboard.general.string = session.diagnosticReport }
+                    } else {
+                        Text(session.pageStatus).font(.callout)
+                    }
                     if session.loading { Button("Verbindungsversuch abbrechen") { session.cancelLogin() } }
                     if !error.isEmpty { Text(error).foregroundStyle(.red) }
                 }

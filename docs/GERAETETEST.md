@@ -8,7 +8,7 @@ Diese Liste beschreibt ausstehende Abnahmen, keine bereits bestandenen Hardwaret
 | Account und Passwort bei neuem Projekt / weiterer Station eingeben | Native Felder reagieren ohne Absturz; Zugangsdaten werden pro Station gespeichert |
 | Bestehende Station aus 0.1.1 öffnen | Daten bleiben erhalten; Zugangsdaten können einmalig ergänzt werden |
 | LOYTEC 8.4.20 anmelden | Automatischer Login lädt die I/O-Testseite; keine Eingabe in der eingebetteten Website nötig |
-| 0.1.4 mit gespeicherten Zugangsdaten öffnen | WebKit wird am App-Fenster angebunden; TCP-Porttest und Anmeldephasen laufen durch |
+| 0.1.5 mit gespeicherten Zugangsdaten öffnen | WebKit wird am App-Fenster angebunden; TCP-Porttest und Anmeldephasen laufen durch |
 | HTTP-Adresse öffnen | Der konfigurierte HTTP-Port wird verwendet; keine selbständige Umstellung auf HTTPS |
 | HTTPS mit nicht bestätigtem Zertifikat öffnen | Zertifikatskarte vor dem Login; kein Passwortversand vor Freigabe |
 | SHA-256-Fingerabdruck am Controller bzw. geprüftem PC vergleichen und freigeben | Nur die ausgewählte Station mit genau diesem Zertifikat kann sich anmelden |
@@ -18,7 +18,10 @@ Diese Liste beschreibt ausstehende Abnahmen, keine bereits bestandenen Hardwaret
 | Controller-TCP-Port unerreichbar | Spätestens nach 10 Sekunden verständlicher Port-/Netzwerkhinweis |
 | Controller-Port offen, HTTP-Seite oder Anmeldung hängt | Gesamtversuch endet spätestens nach 30 Sekunden mit Phase |
 | Lokales Netzwerk verweigern und danach in iOS erlauben | Hinweis erscheint; ein ausdrücklich neu gestarteter Versuch kann fortfahren |
-| Verbindungsdiagnose kopieren | Version, Controller-Adresse, Phasen und Fehlercodes enthalten; Passwort/Token fehlen |
+| Abbruch bei der Anmeldeprüfung | Fehlermeldung und Diagnosecode direkt unter Verbindung; Kopieren ohne Aufklappen der Diagnose möglich |
+| Verzögerter Seitenaufbau | Formularprüfung wartet begrenzt; keine mehrfachen Passwortanfragen |
+| Verbindungsdiagnose kopieren | Version, Status, Abbruchgrund, Zugangsdaten-vorhanden-Hinweis und Seitenmerkmale enthalten; Benutzername, Passwort und Tokenwerte fehlen |
+| Während der Formular-Wartezeit abbrechen / Dialog schließen | Keine nachträgliche Anmeldung; der abgebrochene Versuch bleibt beendet |
 | KI-Modus mit eingerichtetem Server | Beispielablauf in KI_GESPRAECH.md einschließlich Referenzmessung und bestätigtem Kommentar durchläuft alle Schritte |
 | KI fragt nach Speicherung | Mikrofon erst nach vollständigem Vorlesen aktiv; nur eindeutige abschließende Zustimmung speichert |
 | „Ja, aber nicht speichern“ / falsche Einheit / parallele Kommentaränderung | Keine ungefragte oder widersprüchliche Speicherung |

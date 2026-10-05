@@ -5,7 +5,50 @@ import Network
 import Security
 import UIKit
 
-private struct ControllerLoginReply: Decodable { let state: String; let message: String? }
+private struct ControllerPageDiagnostics: Decodable, Equatable {
+    let readyState: String
+    let flags: [String: Bool]
+    let scriptErrors: Int
+    let resourceErrors: Int
+    let firstScriptError: String
+    let firstScriptSource: String
+    let firstResourceSource: String
+
+    var summary: String {
+        let fields = ["form", "username", "password", "inputsLinked", "passwordInput", "postForm",
+                      "loginContainer", "loginClass", "controllerBrand", "authenticated", "csrf", "passwordAction"]
+        return fields.map { "\($0)=\(flags[$0] == true ? "ja" : "nein")" }.joined(separator: ", ")
+    }
+}
+private struct ControllerLoginReply: Decodable {
+    let state: String
+    let code: String
+    let message: String?
+    let diagnostics: ControllerPageDiagnostics?
+}
+private struct ControllerConnectionError: LocalizedError {
+    let code: String
+    let message: String
+    var errorDescription: String? { message }
+
+    static func describe(_ error: Error) -> ControllerConnectionError {
+        if let known = error as? ControllerConnectionError { return known }
+        if let known = error as? AppFailure { return Self(code: "connection-check", message: known.message) }
+        if error is DecodingError {
+            return Self(code: "bridge-response-format", message: "Die Controller-Antwort passt nicht zum erwarteten Datenformat. Verbindungsdiagnose kopieren.")
+        }
+        let failure = error as NSError
+        // Never copy WebKit exception text or userInfo: these may contain page
+        // content, URL parameters, account names or response bodies.
+        if failure.domain == WKError.errorDomain {
+            return Self(code: "webkit-\(failure.code)", message: "Die Controller-Seite konnte in WebKit nicht ausgewertet werden (Code \(failure.code)). Verbindungsdiagnose kopieren.")
+        }
+        if failure.domain == NSURLErrorDomain {
+            return Self(code: "network-\(failure.code)", message: "Die Controller-Seite konnte nicht geladen werden (Netzwerkcode \(failure.code)). Adresse und WLAN/VPN prüfen.")
+        }
+        return Self(code: "native-\(failure.code)", message: "Die Controller-Verbindung konnte nicht abgeschlossen werden. Verbindungsdiagnose kopieren.")
+    }
+}
 
 @MainActor final class LoytecSession: NSObject, ObservableObject, WKNavigationDelegate {
     @Published private(set) var pageStatus = "Nicht verbunden"
@@ -16,6 +59,7 @@ private struct ControllerLoginReply: Decodable { let state: String; let message:
     @Published private(set) var pendingCertificate: ControllerCertificate?
     @Published private(set) var trustedCertificate: ControllerCertificate?
     @Published private(set) var diagnostics: [String] = []
+    @Published private(set) var failureCode: String?
     @Published private(set) var transportView: ControllerTransportWebView
     private(set) var station: Station?
     private var webView: ControllerTransportWebView { transportView }
@@ -33,6 +77,7 @@ private struct ControllerLoginReply: Decodable { let state: String; let message:
     private var initialLoadPending = false
     private var startedAt = Date()
     private var phase = "Controller-Seite laden"
+    private var lastPageDiagnostics: ControllerPageDiagnostics?
 
     private static func makeWebView() -> ControllerTransportWebView {
         let configuration = WKWebViewConfiguration()
@@ -76,6 +121,7 @@ private struct ControllerLoginReply: Decodable { let state: String; let message:
         webView.navigationDelegate = self
         self.station = station
         startedAt = Date(); diagnostics = []; pendingCertificate = nil; trustedCertificate = nil
+        failureCode = nil; lastPageDiagnostics = nil; phase = "Controller-Verbindung vorbereiten"
         ready = false; identityConfirmed = false; controllerProduct = ""
         credentials = nil; loginAttempted = false; ioRedirectAttempted = false
         do {
@@ -87,11 +133,12 @@ private struct ControllerLoginReply: Decodable { let state: String; let message:
             credentials = try ControllerCredentialStore.read(for: station)
             trustedCertificate = try ControllerTrustStore.read(for: station)
         }
-        catch { stopWithMessage(error.localizedDescription); return }
+        catch { stopWithError(error); return }
         loading = true
         phase = "Controller-Verbindung vorbereiten"
         pageStatus = "1/4 · Controller-Verbindung vorbereiten …"
         record("Verbindungsversuch gestartet")
+        record(credentials == nil ? "Gespeicherte Zugangsdaten für diese Station/Adresse: fehlen" : "Gespeicherte Zugangsdaten für diese Station/Adresse: vorhanden")
         let connection = connectionID
         initialLoadPending = true
         webView.onWindowAttached = { [weak self] in
@@ -103,7 +150,7 @@ private struct ControllerLoginReply: Decodable { let state: String; let message:
             do { try await Task.sleep(nanoseconds: 30_000_000_000) } catch { return }
             guard let self, self.connectionID == connection, self.loading else { return }
             self.record("Gesamtzeitlimit erreicht")
-            self.cancelLogin(message: "Zeitüberschreitung: \(self.phase). Bitte Verbindungsdiagnose öffnen und Controller-Adresse, WLAN/VPN sowie den Zugriff in Safari prüfen.")
+            self.stopWithMessage("Zeitüberschreitung: \(self.phase). Bitte Verbindungsdiagnose öffnen und Controller-Adresse, WLAN/VPN sowie den Zugriff in Safari prüfen.", code: "connection-timeout")
         }
         startWhenAttached(connection: connection)
     }
@@ -160,7 +207,8 @@ private struct ControllerLoginReply: Decodable { let state: String; let message:
 
     var diagnosticReport: String {
         (["BACsolution I/O \(AppVersion.version) (\(AppVersion.build))", "iOS \(UIDevice.current.systemVersion)",
-          "Controller: \(station?.origin ?? "–")", "Phase: \(phase)"] + diagnostics).joined(separator: "\n")
+          "Controller: \(station?.origin ?? "–")", "Phase: \(phase)", "Status: \(pageStatus)",
+          "Diagnosecode: \(failureCode ?? "–")"] + diagnostics).joined(separator: "\n")
     }
 
     private func loadIOPage() {
@@ -178,7 +226,7 @@ private struct ControllerLoginReply: Decodable { let state: String; let message:
         guard loading else { return }
         connectionID = UUID(); pageID = UUID()
         pageTask?.cancel(); webView.stopLoading()
-        stopWithMessage(message)
+        stopWithMessage(message, code: nil)
     }
 
     func trustPendingCertificate() throws {
@@ -278,19 +326,19 @@ private struct ControllerLoginReply: Decodable { let state: String; let message:
         return url.scheme == expected.scheme && url.host?.lowercased() == expected.host?.lowercased() && port(url) == port(expected)
     }
     func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
-        guard webView === self.webView else { return }
+        guard webView === self.webView, loading || ready else { return }
         pageID = UUID(); pageTask?.cancel()
         ready = false; identityConfirmed = false; loading = true
         record("WebKit: Navigation gestartet")
     }
     func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
-        guard webView === self.webView else { return }
+        guard webView === self.webView, loading else { return }
         phase = "Controller-Seite vollständig laden"
         pageStatus = loginAttempted ? "4/4 · I/O-Testseite wird geladen …" : "1/4 · Controller antwortet. Seite wird geladen …"
         record("WebKit: Seiteninhalt empfangen")
     }
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-        guard webView === self.webView else { return }
+        guard webView === self.webView, loading else { return }
         phase = "Anmeldeseite prüfen"
         pageStatus = "2/4 · Anmeldestatus prüfen …"
         record("WebKit: Seite geladen; Anmeldestatus prüfen")
@@ -309,6 +357,7 @@ private struct ControllerLoginReply: Decodable { let state: String; let message:
             } catch is CancellationError { return }
             catch {
                 guard self.isCurrent(connection, page) else { return }
+                self.record("I/O-Seite noch nicht bestätigt [\(ControllerConnectionError.describe(error).code)]")
                 await self.authenticateIfNeeded(connection: connection, page: page, readError: error)
             }
         }
@@ -320,20 +369,22 @@ private struct ControllerLoginReply: Decodable { let state: String; let message:
 
     private func authenticateIfNeeded(connection: UUID, page: UUID, readError: Error) async {
         do {
-            let state: ControllerLoginReply = try await evaluate(loginScript, request: ["operation": "inspect"])
+            let state = try await inspectLoginPage(connection: connection, page: page)
             guard isCurrent(connection, page) else { return }
-            if state.state == "error" { throw AppFailure(state.message ?? "Controller-Anmeldung konnte nicht geprüft werden.") }
-            if state.state == "actionRequired" { stopWithMessage(Self.controllerActionRequired); return }
+            if state.state == "error" { throw ControllerConnectionError(code: state.code, message: state.message ?? "Controller-Anmeldung konnte nicht geprüft werden.") }
+            if state.state == "actionRequired" { stopWithMessage(Self.controllerActionRequired, code: state.code); return }
             if state.state == "authenticated" {
-                guard !ioRedirectAttempted else { stopWithMessage(readError.localizedDescription); return }
+                guard !ioRedirectAttempted else { stopWithError(readError); return }
                 ioRedirectAttempted = true; loadIOPage(); return
             }
-            guard state.state == "login" else { stopWithMessage(readError.localizedDescription); return }
+            guard state.state == "login" else {
+                stopWithMessage("Die Anmeldeprüfung hat keinen bekannten Zustand zurückgegeben. Verbindungsdiagnose kopieren.", code: "unexpected-login-state"); return
+            }
             guard !loginAttempted else {
-                stopWithMessage("Anmeldung nicht bestätigt. Zugangsdaten und Controller-Berechtigungen prüfen."); return
+                stopWithMessage("Anmeldung nicht bestätigt. Zugangsdaten und Controller-Berechtigungen prüfen.", code: "login-not-retained"); return
             }
             guard let credentials else {
-                stopWithMessage("Bitte die Zugangsdaten für diese Station speichern und verbinden."); return
+                stopWithMessage("Bitte die Zugangsdaten für diese Station speichern und verbinden.", code: "credentials-missing"); return
             }
             // One request per explicit connection. Failure/timeouts never trigger retries.
             loginAttempted = true
@@ -345,9 +396,13 @@ private struct ControllerLoginReply: Decodable { let state: String; let message:
             ])
             guard isCurrent(connection, page) else { return }
             self.credentials = nil
-            if result.state == "error" { throw AppFailure(result.message ?? "Controller-Anmeldung fehlgeschlagen.") }
+            record("Anmeldeantwort: \(result.code)")
+            if result.state == "error" { throw ControllerConnectionError(code: result.code, message: result.message ?? "Controller-Anmeldung fehlgeschlagen.") }
+            if result.state == "actionRequired" {
+                stopWithMessage(Self.controllerActionRequired, code: result.code); return
+            }
             guard result.state == "authenticated" else {
-                stopWithMessage(Self.controllerActionRequired); return
+                stopWithMessage("Controller hat die Anmeldung nicht bestätigt. Verbindungsdiagnose kopieren.", code: "unexpected-login-result"); return
             }
             ioRedirectAttempted = true
             phase = "I/O-Testseite nach der Anmeldung laden"
@@ -356,8 +411,35 @@ private struct ControllerLoginReply: Decodable { let state: String; let message:
         } catch is CancellationError { return }
         catch {
             guard isCurrent(connection, page) else { return }
-            stopWithMessage(error.localizedDescription)
+            stopWithError(error)
         }
+    }
+
+    private func inspectLoginPage(connection: UUID, page: UUID) async throws -> ControllerLoginReply {
+        // Repeat only page inspection. No password request is retried, and the
+        // overall connection deadline and navigation cancellation still apply.
+        for attempt in 0...6 {
+            let state: ControllerLoginReply = try await evaluate(loginScript, request: ["operation": "inspect"])
+            guard isCurrent(connection, page) else { throw CancellationError() }
+            if let snapshot = state.diagnostics, snapshot != lastPageDiagnostics {
+                lastPageDiagnostics = snapshot
+                record("Seitenprüfung: \(snapshot.readyState), Skriptfehler=\(snapshot.scriptErrors), Ressourcenfehler=\(snapshot.resourceErrors)")
+                if snapshot.scriptErrors > 0 || snapshot.resourceErrors > 0 {
+                    record("Erster Seitenfehler: \(snapshot.firstScriptError) / \(snapshot.firstScriptSource); erste fehlende Ressource: \(snapshot.firstResourceSource)")
+                }
+                record("Seitenmerkmale: \(snapshot.summary)")
+            }
+            if state.state != "pending" {
+                record("Anmeldeprüfung: \(state.code)")
+                return state
+            }
+            if attempt == 0 {
+                pageStatus = "2/4 · Warte auf den Aufbau der Controller-Anmeldeseite …"
+                record("Anmeldeformular noch nicht vorhanden; Seitenaufbau bis zu 3 Sekunden abwarten")
+            }
+            if attempt < 6 { try await Task.sleep(nanoseconds: 500_000_000) }
+        }
+        throw ControllerConnectionError(code: "login-page-incomplete", message: "Der Controller antwortet, aber seine Anmeldeseite wurde nicht vollständig aufgebaut. Verbindungsdiagnose kopieren.")
     }
 
     private static let controllerActionRequired = "Der Controller verlangt eine Passwortänderung oder Bestätigung. Bitte diese zuerst in seiner Weboberfläche abschließen."
@@ -376,16 +458,21 @@ private struct ControllerLoginReply: Decodable { let state: String; let message:
         if (error as NSError).code == NSURLErrorCancelled { return }
         let failure = error as NSError
         record("WebKit-Fehler: \(failure.domain) / \(failure.code)")
-        stopWithMessage(error.localizedDescription)
+        stopWithError(error)
     }
-    private func stopWithMessage(_ message: String) {
+    private func stopWithError(_ error: Error) {
+        let failure = ControllerConnectionError.describe(error)
+        stopWithMessage(failure.message, code: failure.code)
+    }
+    private func stopWithMessage(_ message: String, code: String? = "connection-stopped") {
         pageID = UUID()
         initialLoadPending = false; webView.onWindowAttached = nil; stopProbe()
         webView.navigationDelegate = nil
         webView.stopLoading()
         loading = false; ready = false; identityConfirmed = false; credentials = nil
-        pageTask?.cancel(); deadline?.cancel(); pageStatus = message
+        pageTask?.cancel(); deadline?.cancel(); pageStatus = message; failureCode = code
         record("Verbindung beendet · \(phase)")
+        record("\(code.map { "Abbruch [\($0)]" } ?? "Hinweis"): \(message)")
         webView.configuration.preferences.inactiveSchedulingPolicy = .suspend
     }
 

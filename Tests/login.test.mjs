@@ -17,7 +17,7 @@ function fixture({result = {loggedIn:'1', loginState:1}, responseText, httpStatu
   const context = vm.createContext({
     location: {origin:'http://controller.test', protocol:'http:', pathname:'/webui/liob/iotest'},
     LoginPage: function LoginPage() {},
-    document: {getElementById: id => fields[id] ?? null},
+    document: {readyState:'complete', getElementById: id => fields[id] ?? null},
     g_csrf_token: 'test-only-csrf',
     URLSearchParams, AbortController, setTimeout, clearTimeout,
     fetch: async (url, options) => {
@@ -37,7 +37,7 @@ function fixture({result = {loggedIn:'1', loginState:1}, responseText, httpStatu
 
 test('native login uses the observed LOYTEC session endpoint and exact password encoding', async () => {
   const f = fixture();
-  assert.deepEqual(await f.call(), {state:'authenticated'});
+  assert.equal((await f.call()).state, 'authenticated');
   assert.equal(f.requests.length, 1);
   const {url, options} = f.requests[0];
   assert.equal(url, '/webui/login');
@@ -54,7 +54,10 @@ test('native login uses the observed LOYTEC session endpoint and exact password 
 
 test('page inspection never sends credentials or modifies browser inputs', async () => {
   const f = fixture();
-  assert.deepEqual(await f.call('inspect'), {state:'login'});
+  const reply = await f.call('inspect');
+  assert.equal(reply.state, 'login');
+  assert.equal(reply.code, 'login-form-ready');
+  assert.equal(reply.diagnostics.flags.inputsLinked, true);
   assert.equal(f.requests.length, 0);
 });
 
@@ -105,11 +108,11 @@ test('incorrect passwords and account throttling return actionable errors withou
 
 test('password-change/default-password confirmation is never silently acknowledged', async () => {
   const response = fixture({result:{loggedIn:'1', loginState:2}});
-  assert.deepEqual(await response.call(), {state:'actionRequired'});
+  assert.equal((await response.call()).state, 'actionRequired');
   assert.equal(response.requests.length, 1);
   for (const node of ['confirmWarnForm', 'passwdInitContainer']) {
     const page = fixture(); page.fields[node] = {};
-    assert.deepEqual(await page.call(), {state:'actionRequired'});
+    assert.equal((await page.call()).state, 'actionRequired');
     assert.equal(page.requests.length, 0);
   }
 });
@@ -130,9 +133,103 @@ test('only login operations are supported and an authenticated page is not logge
   assert.equal((await f.call('write')).state, 'error');
   assert.equal(f.requests.length, 0);
   delete f.fields.loginForm;
-  f.context.optBase = {loggedIn:true};
-  assert.deepEqual(await f.call('inspect'), {state:'authenticated'});
+  f.context.optBase = {loggedIn:true, prodCode:'LIOB-589'};
+  assert.equal((await f.call('inspect')).state, 'authenticated');
   assert.equal(f.requests.length, 0);
+});
+
+test('delayed form construction can be inspected again without sending credentials', async () => {
+  const f = fixture();
+  const savedFields = {...f.fields};
+  Object.keys(f.fields).forEach(key => delete f.fields[key]);
+  const pending = await f.call('inspect');
+  assert.equal(pending.state, 'pending');
+  assert.equal(pending.code, 'page-not-ready');
+  assert.equal(pending.diagnostics.flags.form, false);
+  assert.equal(f.requests.length, 0);
+  Object.assign(f.fields, savedFields);
+  assert.equal((await f.call('inspect')).state, 'login');
+  assert.equal(f.requests.length, 0);
+  assert.equal((await f.call()).state, 'authenticated');
+  assert.equal(f.requests.length, 1);
+});
+
+test('a missing legacy constructor does not block a positively identified LOYTEC form', async () => {
+  const f = fixture();
+  delete f.context.LoginPage;
+  f.fields.loginContainer = {};
+  f.context.optBase = {loggedIn:false, prodCode:'LIOB-589'};
+  const reply = await f.call('inspect');
+  assert.equal(reply.state, 'login');
+  assert.equal(reply.diagnostics.flags.loginClass, false);
+  assert.equal(reply.diagnostics.flags.controllerBrand, true);
+  assert.equal((await f.call()).state, 'authenticated');
+  assert.equal(f.requests.length, 1);
+});
+
+test('metadata fallback still requires a complete known form, controller identity and CSRF', async () => {
+  for (const change of [
+    f => { delete f.fields.loginContainer; },
+    f => { f.context.optBase.prodCode = 'unrelated-product'; },
+    f => { delete f.context.g_csrf_token; },
+    f => { f.fields.password.form = {}; },
+    f => { f.fields.password.type = 'text'; },
+    f => { delete f.fields.username; },
+    f => { f.fields.loginForm.method = 'get'; },
+    f => { f.context.optBase.loggedIn = true; }
+  ]) {
+    const f = fixture();
+    delete f.context.LoginPage;
+    f.fields.loginContainer = {};
+    f.context.optBase = {loggedIn:false, prodCode:'LIOB-589'};
+    change(f);
+    const reply = await f.call();
+    assert.equal(reply.state, 'error');
+    assert.equal(reply.code, 'login-form-unrecognized');
+    assert.equal(f.requests.length, 0);
+  }
+});
+
+test('DOM form attributes are read even when a named control shadows the method property', async () => {
+  const f = fixture();
+  f.fields.loginForm.method = {value:'unrelated-control'};
+  f.fields.loginForm.getAttribute = name => name === 'method' ? 'POST' : null;
+  assert.equal((await f.call()).state, 'authenticated');
+  assert.equal(f.requests.length, 1);
+});
+
+test('incomplete and unrelated pages cannot authenticate or claim an existing session', async () => {
+  const f = fixture();
+  Object.keys(f.fields).forEach(key => delete f.fields[key]);
+  f.context.optBase = {loggedIn:true, prodCode:'unrelated-product'};
+  assert.equal((await f.call('inspect')).state, 'pending');
+  assert.equal((await f.call()).state, 'error');
+  assert.equal(f.requests.length, 0);
+});
+
+test('diagnostics contain only fixed presence flags and bounded error counts', async () => {
+  const f = fixture();
+  f.context.__bacIOTransportDiagnostics = {scriptErrors:2, resourceErrors:1000, message:'private-page-data', firstScriptError:'private-page-data', firstScriptSource:'private-page-data', firstResourceSource:'private-page-data'};
+  const {diagnostics} = await f.call('inspect');
+  assert.equal(diagnostics.readyState, 'complete');
+  assert.equal(diagnostics.scriptErrors, 2);
+  assert.equal(diagnostics.resourceErrors, 999);
+  assert.deepEqual(Object.keys(diagnostics).sort(), ['firstResourceSource','firstScriptError','firstScriptSource','flags','readyState','resourceErrors','scriptErrors']);
+  assert.ok(Object.values(diagnostics.flags).every(value => typeof value === 'boolean'));
+  assert.ok(!JSON.stringify(diagnostics).includes('private-page-data'));
+});
+
+test('unexpected page exceptions cannot leak secrets through login errors', async () => {
+  const secret = 'private-account-password-token';
+  const failures = [new Error(secret), Object.assign(new Error(secret), {loginCode:secret}), secret];
+  for (const fetchError of failures) {
+    const f = fixture({fetchError});
+    const reply = await f.call();
+    assert.equal(reply.state, 'error');
+    assert.equal(reply.code, 'login-script-error');
+    assert.ok(!JSON.stringify(reply).includes(secret));
+    assert.equal(f.requests.length, 1);
+  }
 });
 
 test('native reply never exposes account names, passwords, response bodies or session tokens', async () => {
