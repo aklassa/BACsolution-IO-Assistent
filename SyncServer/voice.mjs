@@ -3,7 +3,7 @@ import { guidedInstructions, guidedTools } from '../Shared/guided.js';
 
 export function createVoiceBroker({apiKey, model = 'gpt-realtime', fetchImpl = fetch, clock = Date.now} = {}) {
   let starts = [], inFlight = false;
-  return async function createSession(body) {
+  async function createSession(body) {
     if (!apiKey) throw new APIError(503, 'KI-Zugang ist am Server noch nicht eingerichtet.');
     if (!body || Object.keys(body).length) throw new APIError(400, 'Die Sitzung benötigt keine Controller- oder Zugangsdaten.');
     const now = clock(); starts = starts.filter(t => now - t < 3600_000);
@@ -32,5 +32,10 @@ export function createVoiceBroker({apiKey, model = 'gpt-realtime', fetchImpl = f
       if (e instanceof APIError) throw e;
       throw new APIError(502, 'KI-Dienst ist nicht erreichbar. Es wurde keine Sitzung gestartet.');
     } finally { inFlight = false; }
-  };
+  }
+  // Configuration check only. It never creates a token, consumes a session slot,
+  // contacts OpenAI, or claims that the configured key/model has been validated.
+  createSession.status = () => ({service:'bacsolution-io-voice', schema:1,
+    configured:typeof apiKey === 'string' && apiKey.trim().length > 0, model, maxSeconds:600});
+  return createSession;
 }

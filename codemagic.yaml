@@ -1,4 +1,5 @@
-# BACsolution I/O-Assistent 0.1.1 - natives SwiftUI-Projekt, iOS 17+
+# BACsolution I/O-Assistent 0.1.9 - iOS 17+, Apple-KI ab iOS 26
+# Bauen mit Xcode 26+ / iOS-SDK 26+; KI-Schluessel werden nicht benoetigt.
 # Diese Datei muss im Hauptverzeichnis des Git-Repositorys liegen.
 # Beide Workflows werden manuell in Codemagic gestartet.
 # Einrichtung und Windows-Befehle: CODEMAGIC_BEFEHLE.txt

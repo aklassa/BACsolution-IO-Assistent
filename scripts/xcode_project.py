@@ -59,6 +59,8 @@ for scope in ["project", "target"]:
                 "TARGETED_DEVICE_FAMILY": "1", "SUPPORTED_PLATFORMS": "iphoneos iphonesimulator",
                 "SUPPORTS_MACCATALYST": "NO", "LD_RUNPATH_SEARCH_PATHS": "$(inherited) @executable_path/Frameworks",
                 "ENABLE_USER_SCRIPT_SANDBOXING": "YES",
+                # Keep the iOS 17 base usable when the iOS 26 model is absent.
+                "OTHER_LDFLAGS": "$(inherited) -weak_framework FoundationModels",
             }
         body = " ".join(f"{key} = {q(value)};" for key, value in settings.items())
         configs.append(add(f"{scope}:{mode}", f"isa = XCBuildConfiguration; buildSettings = {{ {body} }}; name = {mode};"))

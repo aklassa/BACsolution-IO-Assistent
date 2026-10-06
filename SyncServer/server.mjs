@@ -4,8 +4,9 @@ import { pathToFileURL } from 'node:url';
 import { timingSafeEqual } from 'node:crypto';
 import { WorkspaceStore, APIError } from './store.mjs';
 import { createVoiceBroker } from './voice.mjs';
+import { createGoogleVoiceBroker } from './google-voice.mjs';
 
-export function createServer(store, token, {voice} = {}) {
+export function createServer(store, token, {voice, googleVoice} = {}) {
   if (typeof token !== 'string' || token.length < 32) throw new Error('BAC_IO_SYNC_TOKEN mit mindestens 32 Zeichen setzen.');
   return http.createServer(async (req, res) => {
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
@@ -16,8 +17,16 @@ export function createServer(store, token, {voice} = {}) {
       const supplied = Buffer.from(req.headers.authorization || ''), expected = Buffer.from(`Bearer ${token}`);
       if (supplied.length !== expected.length || !timingSafeEqual(supplied, expected)) throw new APIError(401, 'Anmeldung erforderlich.');
       if (req.headers['x-bacsolution-schema'] !== '1') throw new APIError(400, 'Protokollversion fehlt.');
+      if (req.method === 'GET' && req.url === '/v1/voice/status') {
+        reply(200, voice?.status?.() ?? {service:'bacsolution-io-voice', schema:1, configured:false, model:'', maxSeconds:600});
+        return;
+      }
+      if (req.method === 'GET' && req.url === '/v1/voice/google/status') {
+        reply(200, googleVoice?.status?.() ?? {service:'bacsolution-google-voice',schema:1,configured:false,model:'',maxSeconds:600});
+        return;
+      }
       if (req.method === 'GET' && req.url === '/v1/state') { reply(200, store.snapshot()); return; }
-      if (req.method !== 'POST' || !['/v1/documents', '/v1/results', '/v1/voice/session'].includes(req.url)) throw new APIError(404, 'Endpunkt unbekannt.');
+      if (req.method !== 'POST' || !['/v1/documents', '/v1/results', '/v1/voice/session', '/v1/voice/google/session'].includes(req.url)) throw new APIError(404, 'Endpunkt unbekannt.');
       if (!(req.headers['content-type'] || '').startsWith('application/json')) throw new APIError(415, 'JSON erforderlich.');
       const chunks = []; let length = 0;
       for await (const chunk of req) {
@@ -31,6 +40,10 @@ export function createServer(store, token, {voice} = {}) {
         if (!voice) throw new APIError(503, 'KI-Zugang ist am Server noch nicht eingerichtet.');
         reply(200, await voice(body)); return;
       }
+      if (req.url === '/v1/voice/google/session') {
+        if (!googleVoice) throw new APIError(503,'Google-Zugang ist am Server noch nicht eingerichtet.');
+        reply(200, await googleVoice(body)); return;
+      }
       reply(200, req.url === '/v1/documents' ? await store.writeDocument(body) : await store.writeResult(body));
     } catch (e) {
       reply(e instanceof APIError ? e.status : 500, { error: e instanceof APIError ? e.message : 'Speichern fehlgeschlagen.', ...(e.extra || {}) });
@@ -41,7 +54,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.ar
   const file = path.resolve(process.env.BAC_IO_DATA_FILE || './var/workspace.json');
   const store = await WorkspaceStore.open(file);
   const voice = createVoiceBroker({apiKey:process.env.OPENAI_API_KEY, model:process.env.BAC_IO_VOICE_MODEL || 'gpt-realtime'});
-  const server = createServer(store, process.env.BAC_IO_SYNC_TOKEN, {voice});
+  const googleVoice = createGoogleVoiceBroker({apiKey:process.env.GEMINI_API_KEY,model:process.env.BAC_IO_GOOGLE_MODEL || undefined});
+  const server = createServer(store, process.env.BAC_IO_SYNC_TOKEN, {voice, googleVoice});
   server.requestTimeout = 15_000; server.headersTimeout = 10_000;
   const port = Number(process.env.BAC_IO_PORT || 8787);
   // TLS/auth gateway goes in front. No public listener or deployment in this package.

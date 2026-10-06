@@ -7,7 +7,7 @@ import Combine
     let speech: SpeechService
     let sync: SyncService
     let language: LanguageEngine?
-    let voice = RealtimeService()
+    let voice = GuidedVoiceService()
     @Published var observedAddress: String?
     @Published var voiceProposal: VoiceProposal?
     var observationTask: Task<Void, Never>?
@@ -16,7 +16,9 @@ import Combine
     @Published var projectID: String?
     @Published var stationID: String?
     @Published var selectedAddress: String?
-    @Published var points: [IOPoint] = []
+    @Published var points: [IOPoint] = [] { didSet { classifyReservePoints() } }
+    @Published private(set) var reserveKeys = Set<String>()
+    @Published private(set) var hideReservePoints = UserDefaults.standard.object(forKey: "hideReservePoints") as? Bool ?? true
     @Published var candidates: [IOPoint] = []
     @Published var suggestions: [String] = []
     @Published var pendingTerm: Term?
@@ -43,6 +45,31 @@ import Combine
     var project: Project? { store.projects.first { $0.id == projectID } }
     var station: Station? { project?.stations.first { $0.id == stationID } }
     var selected: IOPoint? { points.first { $0.address == selectedAddress } }
+    var inspectionPoints: [IOPoint] { hideReservePoints ? points.filter { !isReserve($0) } : points }
+    func isReserve(_ point: IOPoint) -> Bool { reserveKeys.contains(point.key) }
+    private func classifyReservePoints() {
+        // If local classification fails, show every point instead of hiding data.
+        reserveKeys = Set((try? rules().decode([String].self, operation: "reservePointKeys", arguments: ["points": JSON.object(points)])) ?? [])
+    }
+    func setReserveFilter(_ hidden: Bool) {
+        guard !locked, hidden != hideReservePoints else { return }
+        stopGuided()
+        hideReservePoints = hidden
+        UserDefaults.standard.set(hidden, forKey: "hideReservePoints")
+        candidates = []; suggestions = []
+        // Keep selectedAddress and all drafts, including a selected reserve point.
+    }
+    func nextInspectionPoint(after before: IOPoint?, direction: Int = 1, matchingKeys: [String]? = nil) throws -> IOPoint {
+        if let before, !points.contains(where: { $0.key == before.key && $0.sameAssignment(as: before) }) {
+            throw AppFailure("Der bisherige Datenpunkt wurde geändert. Bitte neu auswählen.")
+        }
+        var arguments: [String: Any] = ["points":try JSON.object(points), "currentKey":before?.key ?? "",
+                                        "direction":direction, "hideReserve":hideReservePoints]
+        if let matchingKeys { arguments["matchingKeys"] = matchingKeys }
+        let key = try rules().call("nextInspectionPointKey", arguments) as? String ?? ""
+        guard let point = points.first(where: { $0.key == key }) else { throw AppFailure("Ende der gefilterten Datenpunktliste erreicht.") }
+        return point
+    }
     var draft: Draft? {
         guard let stationID, let selected else { return nil }
         return store.data.drafts.first { $0.id == "\(stationID):\(selected.address)" }
@@ -120,7 +147,7 @@ import Combine
     func lookup(_ query: String) async throws {
         candidates = []; suggestions = []; pendingTerm = nil; selectedAddress = nil
         try await refresh()
-        let result = try rules().decode(SearchResult.self, operation: "search", arguments: ["points": JSON.object(points), "text": query, "terms": termObject()])
+        let result = try rules().decode(SearchResult.self, operation: "search", arguments: ["points": JSON.object(inspectionPoints), "text": query, "terms": termObject()])
         if result.matches.count == 1 && !result.approximate {
             selectedAddress = result.matches[0].address
             try speakPoint(result.matches[0])
@@ -128,7 +155,10 @@ import Combine
             candidates = result.matches
             let names = candidates.prefix(5).enumerated().map { "Treffer \($0.offset + 1): \($0.element.name), \($0.element.terminal)" }.joined(separator: ". ")
             tell("\(result.reason ?? "") \(candidates.count) mögliche Treffer. \(names). Bitte Treffer mit Nummer wählen oder die Suche genauer nennen.")
-        } else { tell("Kein passender Datenpunkt in dieser Station gefunden. Bitte Anlagenbezeichnung oder Klemme ergänzen.") }
+        } else {
+            let filterHint = hideReservePoints && !reserveKeys.isEmpty ? " Reservepunkte sind ausgeblendet. Bei Bedarf Reserve ausblenden ausschalten." : ""
+            tell("Kein passender Datenpunkt in der Prüfliste gefunden. Bitte Anlagenbezeichnung oder Klemme ergänzen." + filterHint)
+        }
     }
     func chooseCandidate(_ index: Int) async {
         if voice.active { voice.submit("Treffer \(index + 1)"); return }
@@ -228,11 +258,8 @@ import Combine
             candidates = []; suggestions = []; pendingTerm = nil
             let before = selected
             try await refresh()
-            let index = before.flatMap { p in points.firstIndex(where: { $0.address == p.address && $0.sameAssignment(as: p) }) }
-            if before != nil && index == nil { throw AppFailure("Der bisherige Datenpunkt wurde geändert. Bitte neu auswählen.") }
-            let next = (index ?? (action == "next" ? -1 : points.count)) + (action == "next" ? 1 : -1)
-            guard points.indices.contains(next) else { throw AppFailure("Ende der Datenpunktliste erreicht.") }
-            selectedAddress = points[next].address; try speakPoint(points[next])
+            let next = try nextInspectionPoint(after: before, direction: action == "next" ? 1 : -1)
+            selectedAddress = next.address; try speakPoint(next)
         case "choose": try await chooseCandidateInternal((command["value"] as? Int ?? 0) - 1)
         case "result":
             try stageInternal(result: command["value"] as? Int)

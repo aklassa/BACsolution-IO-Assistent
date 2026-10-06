@@ -1,6 +1,6 @@
-# Noch ausstehender iPhone-Gerätetest
+# iPhone-Geräteprüfungen
 
-Diese Liste beschreibt ausstehende Abnahmen, keine bereits bestandenen Hardwaretests. Zunächst einen Entwicklungsbuild auf einem vorgesehenen Test-iPhone mit iOS 17 oder neuer verwenden. Erst die reine Anzeige prüfen, anschließend einen ausdrücklich dafür vorgesehenen Prüfpunkt dokumentieren.
+Der Nutzer hat Anmeldung und Datenpunktanzeige mit 0.1.7 bestätigt. Die nachfolgende Liste enthält die darüber hinausgehenden Prüfungen und erneute Kontrollen für 0.1.9. Zunächst die reine Anzeige prüfen, anschließend einen ausdrücklich dafür vorgesehenen Prüfpunkt dokumentieren. Filter- und KI-Funktionen wurden noch nicht auf einem iPhone abgenommen.
 
 | Prüfung | Erwartetes Ergebnis |
 |---|---|
@@ -8,7 +8,7 @@ Diese Liste beschreibt ausstehende Abnahmen, keine bereits bestandenen Hardwaret
 | Account und Passwort bei neuem Projekt / weiterer Station eingeben | Native Felder reagieren ohne Absturz; Zugangsdaten werden pro Station gespeichert |
 | Bestehende Station aus 0.1.1 öffnen | Daten bleiben erhalten; Zugangsdaten können einmalig ergänzt werden |
 | LOYTEC 8.4.20 anmelden | Automatischer Login lädt die I/O-Testseite; keine Eingabe in der eingebetteten Website nötig |
-| 0.1.7 mit gespeicherten Zugangsdaten öffnen | WebKit wird am App-Fenster angebunden; TCP-Porttest und Anmeldephasen laufen durch |
+| 0.1.9 mit gespeicherten Zugangsdaten öffnen | Anmeldung und Anzeige funktionieren weiterhin mit dem bereits erfolgreichen Loginverfahren |
 | HTTP-Adresse öffnen | Der konfigurierte HTTP-Port wird verwendet; keine selbständige Umstellung auf HTTPS |
 | HTTPS mit nicht bestätigtem Zertifikat öffnen | Zertifikatskarte vor dem Login; kein Passwortversand vor Freigabe |
 | SHA-256-Fingerabdruck am Controller bzw. geprüftem PC vergleichen und freigeben | Nur die ausgewählte Station mit genau diesem Zertifikat kann sich anmelden |
@@ -27,6 +27,10 @@ Diese Liste beschreibt ausstehende Abnahmen, keine bereits bestandenen Hardwaret
 | Verbindungsdiagnose kopieren | Version, Status, Abbruchgrund, Zugangsdaten-vorhanden-Hinweis und Seitenmerkmale enthalten; Benutzername, Passwort und Tokenwerte fehlen |
 | Während der Formular-Wartezeit abbrechen / Dialog schließen | Keine nachträgliche Anmeldung; der abgebrochene Versuch bleibt beendet |
 | KI-Modus mit eingerichtetem Server | Beispielablauf in KI_GESPRAECH.md einschließlich Referenzmessung und bestätigtem Kommentar durchläuft alle Schritte |
+| KI-Verbindung einrichten, Serveradresse und Server-Zugangsschlüssel speichern | Zugang ist unter Prüfen direkt erreichbar; derselbe Dienst wird für KI und Abgleich verwendet |
+| KI-Server prüfen, noch kein API-Schlüssel am Server | Verständlicher Hinweis auf fehlende API-Konfiguration; Mikrofon bleibt aus, keine KI-Sitzung startet |
+| KI-Server mit hinterlegtem API-Schlüssel prüfen | Erreichbarkeit und Modell werden angezeigt; Hinweis, dass der gewählte Cloud-Anbieter erst beim Gesprächsstart geprüft wird |
+| Falscher Server-Zugangsschlüssel, älterer Server, ungültiger OpenAI-Zugang | Hinweise unterscheiden Server-Anmeldung, fehlenden Endpunkt und OpenAI-Zugang; keine automatische Gesprächswiederholung |
 | KI fragt nach Speicherung | Mikrofon erst nach vollständigem Vorlesen aktiv; nur eindeutige abschließende Zustimmung speichert |
 | „Ja, aber nicht speichern“ / falsche Einheit / parallele Kommentaränderung | Keine ungefragte oder widersprüchliche Speicherung |
 | App vollständig beenden, öffnen und Station erneut verbinden | Gespeicherte Zugangsdaten werden wiederverwendet |
@@ -38,6 +42,11 @@ Diese Liste beschreibt ausstehende Abnahmen, keine bereits bestandenen Hardwaret
 | Falsche oder abgelaufene Anmeldung | Kein gelesener Wert wird als aktuell ausgegeben |
 | Stationskennung bestätigen | Auswahl der realen Station bleibt bewusst nachvollziehbar |
 | Bekannten Eingang und Ausgang lesen | Adresse einschließlich Objekttyp stimmt; gleicher Objektindex verwechselt keine Kanäle |
+| Reserve ausblenden ein-/ausschalten | Eindeutige Reservepunkte verschwinden/erscheinen; Zähler zeigt sichtbare und gesamte Datenpunkte |
+| RES01, Reserve, Spare, Unused bzw. Nicht belegt im Namen oder Beschreibung | Ein- und Ausgänge werden als Reserve erkannt; Reservepumpe, Freigabe, Nullwerte und nicht getestete Punkte bleiben sichtbar |
+| App-Neustart oder andere Station | Gewählte Reservefilter-Einstellung bleibt erhalten; Daten aller Punkte sind weiter vorhanden |
+| Einen Reservepunkt mit Entwurf wählen, dann ausblenden | Auswahl und Entwurf bleiben sichtbar, nur die Listenzeile wird ausgeblendet |
+| Weiter, Zurück, Sprachsuche und KI: nächster Temperaturfühler | Reservefilter gilt überall; tatsächliche Controller-Reihenfolge bleibt erhalten |
 | Benannten Wert trotz anderer markierter Zeile anfragen | Angefragter Punkt wird frisch gelesen |
 | Anlage 2.1 / 2.10 und doppelte Namen | Keine stille Verwechslung; bei Mehrdeutigkeit nummerierte Auswahl |
 | Raumtemp., Y, FG, SM, BM und eigene Begriffe | Suche und Vorlesen verwenden das globale Verzeichnis |
@@ -61,3 +70,23 @@ Diese Liste beschreibt ausstehende Abnahmen, keine bereits bestandenen Hardwaret
 | PC-Integration ergänzen | Gleiches Projekt, gleiche Station, gleiche Begriffe und Prüfhistorie werden übernommen |
 
 Die tatsächliche Controller-Erreichbarkeit im Anlagen-WLAN, Zertifikate, iOS-Berechtigungen und die Headset-Route lassen sich durch Quellcodeprüfungen nicht bestätigen.
+
+## Neue Anbieter in 0.1.9
+
+| Test | Erwartung |
+|---|---|
+| Apple-Verfügbarkeit prüfen, Apple Intelligence aus / Modell lädt / ungeeignetes iPhone | Konkreter Grund, kein Mikrofon, kein Wechsel in die Cloud |
+| Apple ohne Serveradresse und ohne API-Schlüssel | Start bei verfügbarer lokaler KI und deutscher Erkennung; tatsächliche Punkte suchen/lesen |
+| Apple auf älterem iOS, normaler Befehlsmodus | App bleibt nutzbar, Apple-KI meldet Mindestanforderung |
+| Apple: Synonyme, Anlage 2.1/2.10, mehrere Treffer | Relevante globale Begriffe nutzen; keine erfundenen Werte; Rückfrage vor Auswahl |
+| Apple: viele Gesprächsschritte | Begrenzter Kontext, weiterhin frische Werte; neue Gespräche nach zehn Minuten ausdrücklich starten |
+| Google: OpenAI-Freigabe vorhanden, Google-Freigabe aus | Keine Google-Sitzung; eigene Freigabe erforderlich |
+| Google: fehlender/ungültiger Schlüssel oder erschöpftes Kontingent | Verständlicher Hinweis; kein Fallback, keine wiederholten automatischen Sitzungen |
+| Google: freier Dialog über Headset | 16-kHz-Eingang, 24-kHz-Ausgabe, verständliches Deutsch, Unterbrechen testen |
+| Google: Kommentarvorlesen, währenddessen Ja sagen | Mikrofon pausiert; keine Speicherung durch Cloud-Transkriptfragment |
+| Google: lokale deutsche Bestätigung nicht verfügbar | Kommentar anhören; Ja/Nein per Schaltfläche oder Text möglich |
+| Beide: Ja, nicht speichern / Ja wenn es passt | Keine Speicherung; eindeutige Entscheidung erforderlich |
+| Anbieterwechsel beim Verbindungsaufbau, während Antwort oder Kommentarvorlesen | Alte Aufgaben stoppen, keine verspätete Speicherung; Punkt und Entwurf erhalten |
+| Anbieterwechsel während bereits laufender Speicherung | Auswahl gesperrt; Ergebnis/Unsicherheit wie bisher verarbeiten |
+| App neu öffnen | Gewählter Anbieter gespeichert, kein automatischer Gesprächsstart |
+| Netzabbruch oder Headset-Trennung im Kommentarablauf | Sitzung endet; Entwurf am Bildschirm prüfen, keine automatische Schreibwiederholung |

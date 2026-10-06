@@ -17,6 +17,8 @@ Optionale Umgebungsvariablen:
 | `BAC_IO_SYNC_TOKEN` | keiner | Erforderlicher Zugangsschlüssel, mindestens 32 Zeichen |
 | `BAC_IO_PORT` | `8787` | Port auf `127.0.0.1` |
 | `BAC_IO_DATA_FILE` | `./var/workspace.json` | Persistente Datei; nicht ins Quellcode-Repository übernehmen |
+| `GEMINI_API_KEY` | keiner | Optional; Google Gemini Live ermöglichen, ausschließlich am Server setzen |
+| `BAC_IO_GOOGLE_MODEL` | `gemini-3.8-live` | Google-Modell mit v1beta-Live-Audio und Werkzeugen |
 | `OPENAI_API_KEY` | keiner | Optional; KI-Sitzungen ermöglichen, ausschließlich am Server setzen |
 | `BAC_IO_VOICE_MODEL` | `gpt-realtime` | Realtime-Modell für den optionalen KI-Test |
 
@@ -39,6 +41,9 @@ Content-Type: application/json
 | `GET /v1/state` | Gemeinsamen Stand lesen | `{workspaceID, documents, results}` |
 | `POST /v1/documents` | Projekt oder globale Begriffsliste mit Revisionsprüfung schreiben | Bestätigtes Dokument oder HTTP 409 mit `current` |
 | `POST /v1/results` | Bestätigten Prüfeintrag ergänzen | Eintrag mit `serverStoredAt` |
+| `GET /v1/voice/google/status` | Google-Konfiguration lesen, ohne Google-Aufruf | `{service, schema, configured, model, maxSeconds}`; service ist `bacsolution-google-voice` |
+| `POST /v1/voice/google/session` | Google-Sitzung anfordern, Body `{}` | Kurzlebiges Einmal-Token, Modell, API-Version und Testdauer |
+| `GET /v1/voice/status` | KI-Serverkonfiguration lesen, ohne OpenAI-Aufruf | `{service, schema, configured, model, maxSeconds}`; `configured` bedeutet nur: API-Schlüssel hinterlegt |
 | `POST /v1/voice/session` | KI-Sitzung anfordern, Body `{}` | Kurzlebiges Token, Modell und Testdauer; siehe `KI_GESPRAECH.md` |
 
 Ein Dokumentauftrag enthält `id` (einmalige Änderungs-ID), `documentID`, `kind`, `baseRevision` und `payload`. `payload` ist ein JSON-String. Das Format ist in `App/Models.swift` und in der Servervalidierung definiert; Beispiele werden in `Tests/sync.test.mjs` ausgeführt. Ein bestätigtes Dokument enthält `id` (Dokument-ID), `kind`, `revision` und `payload`.
@@ -57,3 +62,5 @@ Ein Prüfeintrag enthält unter anderem eigene ID, Projekt-/Stations-ID, Station
 - `workspaceID` bindet die App nach dem ersten Abgleich an einen gemeinsamen Speicher. Eine versehentlich eingetragene Adresse eines anderen Speichers stoppt den Upload. Ein Hostwechsel bei gleicher Speicheridentität bleibt möglich.
 
 Dieser erste Dienst liefert den gesamten Stand. Große Bestände, automatische Synchronisierung, Paginierung, serverseitige Suche und eine Datenbankmigration werden vor einem breiteren Einsatz ergänzt. Bis dahin ist der Umfang auf einen überschaubaren Pilotbestand auszulegen.
+
+Apple-KI benötigt diesen Dienst nicht. Der Dienst bleibt für den gemeinsamen Datenabgleich optional. Google und OpenAI haben getrennte Konfigurationen und Endpunkte; ein fehlender Google-Schlüssel verhindert keinen normalen Abgleich. Alle Cloud-Sitzungs- und Statusendpunkte verlangen denselben Server-Zugangsschlüssel und Schemaheader. Details und PowerShell-Start stehen in `KI_GESPRAECH.md`.

@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = name => fs.readFileSync(path.join(root, 'Shared', name), 'utf8');
 const plain = text => text.replace(/^import .*?;\s*$/gm, '').replace(/^export /gm, '');
-const core = ['language.js', 'model.js', 'vocabulary.js', 'guided.js'].map(n => plain(read(n))).join('\n');
+const core = ['language.js', 'model.js', 'vocabulary.js', 'guided.js', 'point-filter.js', 'voice-providers.js'].map(n => plain(read(n))).join('\n');
 const facade = `
 function mobileCall(json) {
   try {
@@ -15,6 +15,12 @@ function mobileCall(json) {
       case 'guidedConfirmation': value = guidedConfirmation(r.text); break;
       case 'guidedComment': value = guidedComment(r); break;
       case 'guidedChange': value = guidedChange(r); break;
+      case 'googleVoiceSetup': value = googleVoiceSetup(r); break;
+      case 'validatedVoiceCall': value = validatedVoiceCall(r); break;
+      case 'guidedNarration': value = guidedNarration(r.result); break;
+      case 'appleVoicePrompt': value = appleVoicePrompt(r); break;
+      case 'reservePointKeys': value = reservePointKeys(r.points); break;
+      case 'nextInspectionPointKey': value = nextInspectionPointKey(r); break;
       case 'command': value = commandFrom(r.text, knowledge); break;
       case 'search': value = searchPoints(r.points, r.text, knowledge); break;
       case 'spoken': value = spokenName(r.text, knowledge.terms); break;

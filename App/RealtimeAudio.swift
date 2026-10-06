@@ -16,7 +16,7 @@ import AVFoundation
     var onError: ((String) -> Void)?
     private let playbackFormat = AVAudioFormat(standardFormatWithSampleRate: 24_000, channels: 1)!
 
-    func start() throws {
+    func start(inputSampleRate: Double = 24_000) throws {
         stop()
         let session = AVAudioSession.sharedInstance()
         try session.setCategory(.playAndRecord, mode: .voiceChat, options: [.allowBluetooth, .defaultToSpeaker])
@@ -27,11 +27,11 @@ import AVFoundation
         engine.connect(player, to: engine.mainMixerNode, format: playbackFormat)
         let input = engine.inputNode, source = input.outputFormat(forBus: 0)
         guard source.sampleRate > 0, source.channelCount > 0,
-              let target = AVAudioFormat(commonFormat: .pcmFormatInt16, sampleRate: 24_000, channels: 1, interleaved: false),
+              let target = AVAudioFormat(commonFormat: .pcmFormatInt16, sampleRate: inputSampleRate, channels: 1, interleaved: false),
               let converter = AVAudioConverter(from: source, to: target) else { throw AppFailure("Mikrofonformat nicht verfügbar.") }
         let captureID = UUID(); playbackID = captureID
         input.installTap(onBus: 0, bufferSize: 2048, format: source) { [weak self] buffer, _ in
-            let capacity = AVAudioFrameCount(ceil(Double(buffer.frameLength) * 24_000 / source.sampleRate) + 32)
+            let capacity = AVAudioFrameCount(ceil(Double(buffer.frameLength) * inputSampleRate / source.sampleRate) + 32)
             guard let converted = AVAudioPCMBuffer(pcmFormat: target, frameCapacity: capacity) else { return }
             var supplied = false, error: NSError?
             converter.convert(to: converted, error: &error) { _, status in

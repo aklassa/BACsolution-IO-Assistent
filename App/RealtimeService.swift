@@ -15,6 +15,9 @@ private final class VoiceNoRedirects: NSObject, URLSessionTaskDelegate {
     @Published private(set) var transcript = ""
     @Published private(set) var answer = ""
     @Published private(set) var confirming = false
+    @Published private(set) var checkingSetup = false
+    @Published private(set) var setupStatus = "KI-Server noch nicht geprüft"
+    private var setupGeneration = UUID()
     private(set) var confirmationReady = false
     var onTool: ((String, [String: Any]) async throws -> [String: Any])?
     var onUser: ((String) async throws -> [String: Any]?)?
@@ -48,6 +51,52 @@ private final class VoiceNoRedirects: NSObject, URLSessionTaskDelegate {
     private var tools: [[String: Any]] = []
     private var turnTimeout: Task<Void, Never>?
     var idleForObservation: Bool { connected && !awaitingTranscript && !processing && !responseRequested && !confirming && !confirmationReady }
+
+    func resetSetupCheck() {
+        setupGeneration = UUID(); checkingSetup = false
+        setupStatus = "KI-Server noch nicht geprüft"
+    }
+    func checkSetup(server: String, token: String) async {
+        guard !checkingSetup, !active else { return }
+        resetSetupCheck()
+        let current = setupGeneration
+        checkingSetup = true; setupStatus = "KI-Server wird geprüft …"
+        defer { if current == setupGeneration { checkingSetup = false } }
+        do {
+            guard !token.isEmpty else { throw AppFailure("Zugangsschlüssel des KI-Servers fehlt.") }
+            let base = try SyncService.checkedURL(server)
+            var request = URLRequest(url: base.appendingPathComponent("v1/voice/status"), cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 15)
+            request.httpMethod = "GET"
+            request.setValue("Bearer " + token, forHTTPHeaderField: "Authorization")
+            request.setValue("1", forHTTPHeaderField: "X-BACsolution-Schema")
+            let (bytes, response) = try await network.data(for: request)
+            guard current == setupGeneration, !Task.isCancelled else { return }
+            guard bytes.count < 20_000, let http = response as? HTTPURLResponse else { throw AppFailure("KI-Server antwortet ungültig.") }
+            guard http.statusCode == 200 else { throw AppFailure(Self.serverFailure(http.statusCode)) }
+            struct Setup: Decodable { let service: String; let schema: Int; let configured: Bool; let model: String; let maxSeconds: Int }
+            let info = try JSONDecoder().decode(Setup.self, from: bytes)
+            guard info.service == "bacsolution-io-voice", info.schema == 1, (60...600).contains(info.maxSeconds),
+                  !info.configured || info.model.range(of: "^[a-zA-Z0-9._-]{1,80}$", options: .regularExpression) != nil else {
+                throw AppFailure("Antwort gehört nicht zum unterstützten KI-Dienst. Server aktualisieren.")
+            }
+            setupStatus = info.configured
+                ? "KI-Server erreichbar. API-Schlüssel hinterlegt. Modell: \(info.model). Der OpenAI-Zugang und das Gespräch werden erst beim Start geprüft."
+                : "KI-Server erreichbar. Auf dem Server fehlt noch der OpenAI-API-Schlüssel."
+        } catch {
+            guard current == setupGeneration, !Task.isCancelled else { return }
+            setupStatus = (error as? AppFailure)?.message ?? "KI-Server nicht erreichbar oder Antwort ungültig. HTTPS-Adresse, Zertifikat und Internetverbindung prüfen."
+        }
+    }
+    private static func serverFailure(_ status: Int) -> String {
+        switch status {
+        case 401, 403: return "KI-Server weist den Zugangsschlüssel ab. Den Server-Zugangsschlüssel in den Einstellungen prüfen."
+        case 404: return "KI-Endpunkt fehlt. Den Abgleich-/KI-Server mit diesem Update aktualisieren."
+        case 429: return "Sitzungslimit erreicht. Später erneut starten."
+        case 503: return "OpenAI-API-Schlüssel auf dem KI-Server hinterlegen und den Server neu starten."
+        case 502: return "OpenAI-Zugang nicht verfügbar. API-Schlüssel, Guthaben, Modellfreigabe und Server-Internet prüfen."
+        default: return "KI-Server antwortet mit HTTP \(status). Server-Einrichtung prüfen."
+        }
+    }
 
     override init() {
         super.init(); narrator.delegate = self
@@ -90,7 +139,7 @@ private final class VoiceNoRedirects: NSObject, URLSessionTaskDelegate {
             guard current == generation, active else { return }
             guard bytes.count < 20_000, let http = response as? HTTPURLResponse else { throw AppFailure("KI-Server antwortet ungültig.") }
             guard http.statusCode == 200 else {
-                throw AppFailure("KI-Sitzung nicht verfügbar (HTTP \(http.statusCode)). Server-Einrichtung und Zugangsschlüssel prüfen.")
+                throw AppFailure(Self.serverFailure(http.statusCode))
             }
             struct Ticket: Decodable { let secret: String; let model: String; let expiresAt: Double; let maxSeconds: Int }
             let ticket = try JSONDecoder().decode(Ticket.self, from: bytes)

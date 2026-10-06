@@ -19,7 +19,7 @@ In [Apple Developer](https://developer.apple.com/account/) eine explizite App-ID
 | App-Name | BACsolution IO-Assistent |
 | Bundle-ID | `de.bacsolution.io.assistent.dev` |
 | Plattform | iOS |
-| Version | `0.1.7` |
+| Version | `0.1.9` |
 
 In [App Store Connect](https://appstoreconnect.apple.com/) eine neue App mit genau dieser Bundle-ID anlegen. Das ist erforderlich, bevor die erste Binärdatei zugeordnet werden kann. Für einen anderen Bezeichner `scripts/xcode_project.py` und `codemagic.yaml` gemeinsam anpassen, danach `npm run prepare` ausführen.
 
@@ -35,7 +35,7 @@ Die Buildnummer basiert auf `PROJECT_BUILD_NUMBER`, dem anwendungsweiten Codemag
 
 Die Testversion zeigt Version und Buildnummer unter **Abgleich → App**. Bei einer Fehlermeldung diese beiden Angaben und den betroffenen Arbeitsschritt nennen. Die lokale Buildnummer `1` ist ein Ausgangswert; Codemagic ersetzt sie beim signierten Build durch seinen eigenen Zähler.
 
-Der Workflow verwendet das aktuelle stabile Xcode-Image und prüft mindestens iOS-SDK 26. Das Deployment-Ziel der App bleibt iOS 17. Ein undurchsichtiges I/O-Testicon ist als Asset enthalten.
+Der Workflow verwendet das aktuelle stabile Xcode-Image und prüft mindestens iOS-SDK 26. Das Deployment-Ziel bleibt iOS 17. Apple Foundation Models wird schwach gelinkt und nur ab iOS 26 mit verfügbarer Apple Intelligence verwendet; Google bleibt separat auswählbar. KI-Schlüssel werden zum Build nicht benötigt. Ein undurchsichtiges I/O-Testicon ist als Asset enthalten.
 
 Der Export setzt `testFlightInternalTestingOnly: true`. `submit_to_testflight: false` verhindert die Einreichung zur Beta-Review für externe Tests; der IPA-Upload findet trotzdem statt. `submit_to_app_store: false` verhindert die App-Store-Einreichung. Es gibt keine automatischen Git-Push-Auslöser und keine automatische Einladung zusätzlicher Tester.
 

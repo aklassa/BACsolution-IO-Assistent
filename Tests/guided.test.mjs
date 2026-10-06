@@ -97,3 +97,48 @@ test('voice HTTP endpoint requires existing workspace authentication and schema'
   assert.equal(response.status,200); assert.equal(response.headers.get('cache-control'),'no-store');
   assert.equal(calls,1); assert.equal((await response.json()).secret,'ek_mock');
 });
+
+test('voice setup check is read-only, reports configuration and does not consume session limits', async () => {
+  let calls=0;
+  const broker=createVoiceBroker({apiKey:'private-test-key',clock:()=>1000,fetchImpl:async()=>{
+    calls++; return new Response(JSON.stringify({value:'ek_test',expires_at:61}));
+  }});
+  for (let i=0;i<20;i++) assert.deepEqual(broker.status(),{service:'bacsolution-io-voice',schema:1,configured:true,model:'gpt-realtime',maxSeconds:600});
+  assert.equal(calls,0);
+  assert.ok(!JSON.stringify(broker.status()).includes('private-test-key'));
+  for (let i=0;i<12;i++) await broker({});
+  assert.equal(calls,12);
+  await assert.rejects(broker({}),e=>e.status===429);
+  assert.equal(createVoiceBroker().status().configured,false);
+  assert.equal(createVoiceBroker({apiKey:'  '}).status().configured,false);
+});
+
+test('voice setup HTTP endpoint requires authentication and schema without forwarding secrets or project data', async t => {
+  let upstreamCalls=0;
+  const token='test-only-token-with-at-least-32-characters';
+  const voice=createVoiceBroker({apiKey:'private-test-key',fetchImpl:async()=>{upstreamCalls++;throw new Error('must not be called');}});
+  const server=createServer({snapshot:()=>{throw new Error('must not read project data');}},token,{voice});
+  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+  t.after(()=>new Promise(resolve=>{server.close(resolve);server.closeAllConnections();}));
+  const url=`http://127.0.0.1:${server.address().port}/v1/voice/status`;
+  assert.equal((await fetch(url)).status,401);
+  const headers={Authorization:`Bearer ${token}`};
+  assert.equal((await fetch(url,{headers})).status,400);
+  headers['X-BACsolution-Schema']='1';
+  const response=await fetch(url,{headers});
+  assert.equal(response.status,200);
+  assert.equal(response.headers.get('cache-control'),'no-store');
+  assert.deepEqual(await response.json(),voice.status());
+  assert.equal(upstreamCalls,0);
+  assert.equal((await fetch(url,{headers,method:'POST',body:'{}'})).status,404);
+});
+
+test('server without a voice broker reports incomplete setup instead of claiming readiness', async t => {
+  const token='test-only-token-with-at-least-32-characters';
+  const server=createServer({},token);
+  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+  t.after(()=>new Promise(resolve=>{server.close(resolve);server.closeAllConnections();}));
+  const response=await fetch(`http://127.0.0.1:${server.address().port}/v1/voice/status`,{headers:{Authorization:`Bearer ${token}`,'X-BACsolution-Schema':'1'}});
+  assert.equal(response.status,200);
+  assert.deepEqual(await response.json(),{service:'bacsolution-io-voice',schema:1,configured:false,model:'',maxSeconds:600});
+});

@@ -12,6 +12,10 @@ import Combine
     @Published var allowOnlineRecognition = false
     private(set) var generation = 0
     var onFinal: ((String) -> Void)?
+    var onSpeechFinished: (() -> Void)?
+    var onStopped: ((String) -> Void)?
+    var onEmpty: (() -> Void)?
+    var hasPendingInput: Bool { startID != nil || (captureID != nil && (!transcript.isEmpty || !listening)) }
     private let recognizer = SFSpeechRecognizer(locale: Locale(identifier: "de-DE"))
     private let engine = AVAudioEngine()
     private let synthesizer = AVSpeechSynthesizer()
@@ -85,7 +89,7 @@ import Combine
                         if final {
                             self.cancelCapture(); self.status = "Befehl auswerten"
                             if !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { self.onFinal?(text) }
-                            else { self.resumeIfNeeded() }
+                            else { if let onEmpty = self.onEmpty { onEmpty() } else { self.resumeIfNeeded() } }
                             return
                         }
                         self.silenceTimer?.invalidate()
@@ -139,18 +143,24 @@ import Combine
     }
     func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
         guard self.utterance === utterance else { return }
-        self.utterance = nil; speaking = false; status = "Sprachbedienung bereit"; resumeIfNeeded()
+        self.utterance = nil; speaking = false; status = "Sprachbedienung bereit"
+        onSpeechFinished?(); resumeIfNeeded()
     }
     func resumeIfNeeded() {
         if handsFree && !speaking && !listening && captureID == nil { Task { await listen() } }
     }
+    // Pause between local KI turns without reporting a failed/stopped session.
+    func pause() {
+        generation += 1
+        handsFree = false; startID = nil; cancelCapture(); cancelSpeech()
+    }
     func stop(message: String = "Sprachbedienung gestoppt") {
         let ownedAudio = handsFree || listening || speaking || captureID != nil || startID != nil
-        generation += 1
-        handsFree = false; startID = nil; cancelCapture(); cancelSpeech(); status = message
+        pause(); status = message
         if ownedAudio {
             UIApplication.shared.isIdleTimerDisabled = false
             try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
         }
+        onStopped?(message)
     }
 }

@@ -1,4 +1,44 @@
-# Prüfstand 0.1.7 vom 5. Oktober 2026
+# Prüfstand 0.1.9 vom 5. Oktober 2026
+
+| Bereich | Ergebnis |
+|---|---|
+| Portable Node-Tests | 119 bestanden, keine Fehler; ein nativer macOS-Test hier übersprungen |
+| Apple-Kontext und Aktionen | Begrenzte Historie, passende Begriffe, genaue Anlagenkennungen, zulässige Werkzeuge und Wertansagen mit Fixtures geprüft |
+| Google-Server | Roh-REST-Tokenanforderung, Modellbindung, Ablauf, Einmalnutzung als Request, Kontingent, Parallelstarts, Fehler ohne Schlüsselweitergabe mit simuliertem API-Dienst geprüft |
+| Google-HTTP-Endpunkte | Authentifizierung und Schema, getrennte Anbieter, reiner Konfigurationsstatus, fehlende Schlüssel über lokalen HTTP-Server geprüft |
+| WebSocket-Konfiguration | Im App-Bundle erzeugte Rohschemas, Audio-Konfiguration, Werkzeuge und nullable Referenzwerte geprüft; keine echte Google-Verbindung |
+| Controller | Erfolgreiche Anmelde- und I/O-Brücken gegenüber 0.1.8 unverändert; bestehende Tests weiterhin erfolgreich |
+| Swift | Syntax von 21 App-Dateien und einer Testdatei geprüft; kein Typecheck oder Makro-Build |
+| Native Abläufe | Anbieterwechsel, Audiogeräte, lokale Bestätigung und Foundation Models im Code geprüft; Ausführung am iPhone steht aus |
+| Projektstruktur | Alle neuen Quellen eingebunden, Foundation Models schwach gelinkt; Basisziel iOS 17, Nutzung des Apple-Modells ab iOS 26 |
+| Build / Upload / API-Aufrufe | Kein Xcode-Build, kein Codemagic-Start, kein TestFlight-Upload, keine echten Apple-/Google-/OpenAI-Modellanfragen |
+
+Die Tests des Tokenbrokers prüfen die erzeugte Anfrage und simulierte Antworten; sie belegen nicht die Annahme durch einen echten Google-Account. Der lokale Apple-KI-Code benötigt im nativen Build die Foundation-Models-Makros des Apple-SDK. Die reine Swift-Syntaxprüfung ersetzt dies nicht. Der bestehende macOS-Zertifikatstest bleibt Bestandteil von `npm test` im Codemagic-Workflow.
+
+Update: `UPDATE_0.1.9.md`. Einrichtung: `KI_GESPRAECH.md`. Ausstehende Gerätetests: `GERAETETEST.md`.
+
+## Vorangegangener Prüfstand 0.1.8 vom 5. Oktober 2026
+
+| Bereich | Ergebnis |
+|---|---|
+| Nutzer-Rückmeldung zu 0.1.7 | Anmeldung funktioniert und Datenpunkte werden angezeigt |
+| Portable Node-Tests | 108 bestanden; keine Fehler; ein nativer Test lokal übersprungen |
+| Reservefilter | Eindeutige Wörter, AKS-Trennzeichen, Nummern und Beschreibungen erkannt; zusammengesetzte Namen und Nullwerte bleiben sichtbar |
+| Prüfreihenfolge / Suche | Reserven werden in Liste, Suche und Vorwärts-/Rückwärtsnavigation berücksichtigt; Reihenfolge und vorhandene Auswahl bleiben erhalten |
+| KI-Serverstatus | Authentifizierung, Schema, fehlender API-Schlüssel, keine OpenAI-Anfrage und kein Verbrauch des Sitzungslimits über lokales HTTP geprüft |
+| KI-Gespräch | Vorhandene Tests für Suche, Referenzrechnung, Bestätigung und begrenzte Werkzeuge bestehen weiterhin; Live-Gespräch nicht getestet |
+| Swift | Syntax von 18 App-Swift-Dateien und einer Swift-Testdatei geprüft; kein nativer Typecheck |
+| Projektstruktur | Ressourcen, Berechtigungen und Schema konsistent; unveränderte Anmelde- und Controller-Brücken |
+| iPhone / Xcode / Codemagic für 0.1.8 | Filter, Einrichtung und Gespräch stehen am Gerät noch aus; kein Build durch diese Bearbeitung |
+| Upload / Veröffentlichung / echte OpenAI-Anfragen | Nicht durchgeführt |
+
+Der Filter arbeitet ausschließlich auf Name und Beschreibung. Er verändert keine Controllerwerte, Prüfentwürfe oder gespeicherten Daten. Die Einstellung wird geräteweit gespeichert. Fehler bei der Klassifikation lassen alle Punkte sichtbar.
+
+Der neue Statusendpunkt meldet die Serverkonfiguration. Ein hinterlegter API-Schlüssel ist kein Nachweis für seine Gültigkeit oder ein erfolgreiches Gespräch. Die tatsächliche Verbindung zu OpenAI erfolgt erst nach dem ausdrücklichen Gesprächsstart. Ein HTTPS-Server mit API-Zugang muss vom Nutzer eingerichtet werden.
+
+Update-Anleitung: `UPDATE_0.1.8.md`. KI-Einrichtung: `KI_GESPRAECH.md`.
+
+## Vorangegangener Prüfstand 0.1.7 vom 5. Oktober 2026
 
 | Bereich | Ergebnis |
 |---|---|
@@ -10,7 +50,7 @@
 | Ursprüngliche Controller-HTML-Datei | Zwei zusätzliche Prüfungen bestanden; keine Originaldaten im Update |
 | Projektstruktur | Ressourcen, Berechtigungen und Schema konsistent |
 | Swift und native Zertifikatspolitik | Swift-Dateien gegenüber 0.1.6 unverändert; kein neuer Syntax-/Typecheck. Nativer Test benötigt macOS und bleibt im Codemagic-Workflow enthalten |
-| Tatsächlicher Controller-Login / Xcode-Build 0.1.7 | Ausstehend |
+| Tatsächlicher Controller-Login / Anzeige 0.1.7 | Nach Auslieferung durch den Nutzer am iPhone bestätigt |
 | Upload / Codemagic / Veröffentlichung durch diese Bearbeitung | Nicht durchgeführt |
 
 ## Befund und Korrektur in 0.1.7

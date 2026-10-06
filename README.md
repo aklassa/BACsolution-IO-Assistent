@@ -1,14 +1,16 @@
-# BACsolution I/O-Assistent – Arbeitsstand 0.1.7
+# BACsolution I/O-Assistent – Arbeitsstand 0.1.9
 
-Unveröffentlichter Quellcode für eine native iPhone-App ab iOS 17. Controller-Anbindung: LOYTEC LIOB-589, Firmware 8.4.20. Keine aktive Ausgangsansteuerung.
+Unveröffentlichter Quellcode für eine native iPhone-App ab iOS 17. Controller-Anbindung: LOYTEC LIOB-589, Firmware 8.4.20. Keine aktive Ausgangsansteuerung. Zum Bauen wird Xcode 26+ mit iOS-SDK 26+ benötigt; Apple-KI selbst erfordert ein geeignetes iPhone mit iOS 26+ und aktivierter Apple Intelligence.
 
-**Stand 0.1.7:** Der Gerätelog von 0.1.6 (11) zeigt ein vollständiges Anmeldeformular einschließlich Sitzungstoken, aber keine Gerätekennung. Die Formularprüfung verlangte diese Kennung trotzdem und brach vor dem Passwortversand ab. An der exakt gespeicherten Controller-Adresse genügt jetzt die vollständige LOYTEC-Formularstruktur mit eindeutigem Sitzungstoken für den einmaligen Anmeldeauftrag. Erst die bestätigte Anmeldeantwort und die anschließend geprüfte I/O-Seite geben die Verbindung frei. Der neue Regressionstest bildet alle protokollierten Seitenmerkmale nach: Er scheitert mit 0.1.6 und besteht mit der Korrektur. Der tatsächliche Login auf dem iPhone bleibt zu bestätigen.
+**Neu in 0.1.9:** Unter **Prüfen → KI-Anbieter** zwischen **Apple · auf dem iPhone** und **Google · Gemini Live** wechseln. Die Auswahl wird gespeichert und steht auch in den Einstellungen. Die bisherige OpenAI-Anbindung bleibt eine dritte Option. Ein Wechsel beendet Gespräch und Beobachtung; ausgewählter Punkt und Prüfentwürfe bleiben erhalten. Eine offene sprachliche Speicherfreigabe wird ungültig.
 
-Zusätzlich vorbereitet: ein optionales KI-Gespräch mit natürlicher Datenpunktsuche, Rückfragen, Wertbeobachtung und Referenzvergleich. Die App liest Prüfkommentare vor und speichert sie nur nach ausdrücklicher Bestätigung mit separatem Controller-Readback. Die erste KI-Version setzt keine Prüfstatus automatisch und schaltet keine Ausgänge. Ein eigener HTTPS-Dienst mit OpenAI-API-Zugang ist erforderlich und noch nicht eingerichtet.
+Apple wertet Prüfaufträge lokal mit Foundation Models aus, nutzt die echten Controllerfunktionen und spricht deren Werte mit der iPhone-Stimme. Kein KI-Server oder API-Schlüssel erforderlich. Google verwendet Gemini Live und einen eigenen HTTPS-Server mit GEMINI_API_KEY für kurzlebige Sitzungsfreigaben. Der Server ist vorbereitet, aber nicht bereitgestellt. Freigaben für Google und OpenAI bleiben getrennt; kein automatischer Anbieterwechsel.
 
-**Validierung:** 99 portable Tests bestanden; zusätzlich zwei Prüfungen mit der ursprünglich gelieferten Controller-HTML-Datei. Der zusätzliche native Zertifikatstest benötigt macOS/Swift und wird in den vorhandenen Codemagic-Workflows durch `npm test` ausgeführt; lokal übersprungen. Die Projektstruktur ist geprüft. Die 18 App-Swift-Dateien und die Swift-Testdatei sind gegenüber 0.1.6 unverändert; deren Syntaxprüfung stammt aus diesem Stand. Kein Xcode-Build und kein Live-Test mit OpenAI oder dem Controller für dieses Update. Das ursprüngliche Crashlog betrifft 0.1.1 (6), iOS 27.0.1, und zeigt eine UIKit-Touch-Ausnahme; der konkrete Auslöser ist nicht bewiesen.
+Beide neuen Anbieter können suchen, nachfragen, aktuelle Werte lesen, beobachten und Referenzkommentare vorbereiten. Nur die App speichert nach ausdrücklicher Bestätigung und prüft den Controller-Readback. Keine aktive Ausgangsansteuerung und kein automatisch gesetzter Prüfstatus. Apple spricht in abwechselnden Gesprächsschritten; Google verwendet Live-Audio. Kommentarbestätigungen werden lokal vorgelesen und nach finaler Spracheingabe oder Ja/Nein-Schaltfläche verarbeitet.
 
-**Codemagic/TestFlight:** Bestehende manuelle Workflows und Signierung unverändert. Update-Anleitung: `docs/UPDATE_0.1.7.md`; KI-Einrichtung: `docs/KI_GESPRAECH.md`. Keine Veröffentlichung, kein Upload und kein kostenpflichtiger API-Aufruf durch diese Bearbeitung.
+**Validierung:** 119 portable Tests bestanden; der zusätzliche native Zertifikatstest benötigt macOS und wird in Codemagic ausgeführt, hier übersprungen. Projektstruktur sowie Syntax von 21 App-Swift-Dateien und einer Swift-Testdatei geprüft. Kein Swift-Typecheck, Xcode-Build oder Live-Gespräch dieser Version. Der Nutzer hat Anmeldung und Punktanzeige mit 0.1.7 bestätigt; diese Controller-Brücken bleiben erhalten. Apple-Verfügbarkeit, Foundation-Models-Makros, Google-Verbindung und Headset-Audio sind am Gerät zu prüfen.
+
+**Codemagic/TestFlight:** Manuelle Workflows und Signierung bleiben bestehen. Anleitung: `docs/UPDATE_0.1.9.md`; Anbieter-/Servereinrichtung: `docs/KI_GESPRAECH.md`. Kein Upload, Buildstart oder echter KI-API-Aufruf durch diese Bearbeitung.
 
 ## Enthalten
 
@@ -18,8 +20,9 @@ Zusätzlich vorbereitet: ein optionales KI-Gespräch mit natürlicher Datenpunkt
 - Controller-Passwörter liegen ausschließlich im gerätegebundenen Schlüsselbund, getrennt nach Stations-ID und Controller-Adresse einschließlich Protokoll und Port. Projektdateien, Prüfergebnisse und Serverabgleich enthalten keine Zugangsdaten. Auf weiteren iPhones ist eine einmalige Eingabe erforderlich.
 - HTTPS-Zertifikate mit Systemvertrauen werden regulär geprüft. Ein abweichendes Controller-Zertifikat kann nach Fingerabdruckvergleich ausdrücklich für diese Station freigegeben werden. Änderungen daran benötigen eine neue Freigabe. Diese Ausnahme gilt nicht für Sync- oder KI-Server. Unter **Verbindungsdiagnose** stehen TCP-Erreichbarkeit, HTTP-Status, Anmeldeschritte und Fehlercodes ohne Passwort oder Sitzungstoken.
 - Lesen aller von der Station angebotenen I/O-Busse. Suche über Namen, Beschreibung, Klemme, Gerät und Bus. Ein- und Ausgänge werden angezeigt; aktive Ausgangsansteuerung ist nicht implementiert.
+- Reservefilter mit sichtbarem Zähler, gemeinsamen Regeln für Liste, lokale Sprachsuche und KI-Prüfreihenfolge. Beim ersten Start aktiviert, danach geräteweit gespeichert. Der Schalter zeigt jederzeit wieder alle Punkte. Nullwerte und nicht getestete Punkte werden nicht als Reserve eingestuft.
 - 58 vorbelegte Begriffe aus dem bisherigen Arbeitsstand, eigene Ergänzungen und deaktivierbare Begriffe. Weitere Bezeichnungen stehen einzeln untereinander. Das Verzeichnis gilt für alle Projekte der App.
-- Lokaler Sprachmodus mit Apple-Spracherkennung und Sprachausgabe. Zusätzlich optionaler KI-Modus mit direktem Realtime-Audio, Unterbrechungen und Funktionsaufrufen. Bestätigungen verwenden ausschließlich abgeschlossene Transkripte. Das lokale Vorlesen des vollständigen Kommentars pausiert vorübergehend das Mikrofon.
+- Lokaler Sprachmodus mit Apple-Spracherkennung und Sprachausgabe. Zusätzlich Apple-KI lokal sowie Google Gemini Live und OpenAI Realtime mit Funktionsaufrufen. Bestätigungen verwenden ausschließlich abgeschlossene Transkripte. Das lokale Vorlesen des vollständigen Kommentars pausiert vorübergehend das Mikrofon.
 - Lokale Prüfentwürfe, die App-Neustarts überstehen. Im lokalen Modus werden Ergebnisse und Kommentare nach ausdrücklichem „Speichern“ bzw. Antippen übertragen. Im KI-Modus gilt ein klares „Ja“ ausschließlich für den gerade vollständig vorgelesenen, unveränderten Kommentarentwurf.
 - Vorprüfung gegen die bisherigen Controller-Prüfdaten, anschließendes separates Zurücklesen. Datum vergibt ausschließlich der Controller. Unsichere Schreibaufträge werden nicht automatisch wiederholt.
 - Getrennte Speicherung von „lokaler Entwurf“, „Controller bestätigt“ und „gemeinsam gespeichert“. Konflikte und ausstehende Abgleiche bleiben sichtbar.
@@ -29,7 +32,7 @@ Zusätzlich vorbereitet: ein optionales KI-Gespräch mit natürlicher Datenpunkt
 
 `BACsolution.xcodeproj` ist bereits erzeugt und kann mit Xcode geöffnet werden. Externe Swift-Pakete, CocoaPods und XcodeGen werden nicht benötigt.
 
-Auf einem Mac mit Xcode und iOS-SDK:
+Auf einem Mac mit Xcode 26+ und iOS-SDK 26+:
 
 ```sh
 xcodebuild -project BACsolution.xcodeproj -scheme BACsolution \
@@ -53,7 +56,7 @@ Unter Windows können Quellcode und JavaScript-Tests bearbeitet werden. Der nati
 
 Die App bleibt für die Headset-Sitzung geöffnet und verhindert dabei den automatischen Ruhezustand. Sperren, App-Wechsel, Audio-Unterbrechungen oder das Trennen des Headsets pausieren die Sitzung. Hintergrundbetrieb bei gesperrtem iPhone und Headset-Tastensteuerung sind noch nicht umgesetzt. Die Sprachfunktion startet nicht selbständig nach einer Unterbrechung.
 
-Lokale deutsche Spracherkennung ist der Standard und hängt von Gerät und verfügbarer Sprachunterstützung ab. Ohne diese Unterstützung bleibt die Texteingabe nutzbar. Online-Erkennung durch Apple lässt sich ausdrücklich erlauben. Die App speichert keine Audiodateien. Der lokale Modus verwendet die übernommenen Befehlsregeln. Der neue KI-Modus wird gesondert freigegeben und gestartet; Sprache sowie benötigte Punktdaten werden dabei an OpenAI übertragen. Die gemeinsame Begriffsliste bleibt die Grundlage der Suche. Einrichtung und Grenzen stehen in `docs/KI_GESPRAECH.md`.
+Lokale deutsche Spracherkennung ist der Standard und hängt von Gerät und verfügbarer Sprachunterstützung ab. Ohne diese Unterstützung bleibt die Texteingabe nutzbar. Online-Erkennung durch Apple lässt sich ausdrücklich erlauben. Die App speichert keine Audiodateien. Der lokale Modus verwendet die übernommenen Befehlsregeln. Der KI-Modus wird ausdrücklich gestartet. Apple verarbeitet lokal; für Google und OpenAI werden Sprache und benötigte Punktdaten nach separater Freigabe an den gewählten Anbieter übertragen. Die gemeinsame Begriffsliste bleibt die Grundlage der Suche. Einrichtung und Grenzen stehen in `docs/KI_GESPRAECH.md`.
 
 ## Gemeinsamer Datenbestand und PC
 

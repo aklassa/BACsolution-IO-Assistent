@@ -11,8 +11,13 @@ struct VoiceProposal: Identifiable {
 @MainActor extension AssistantModel {
     func startGuided() async {
         guard !locked, !voice.active else { return }
-        guard UserDefaults.standard.bool(forKey: "voiceCloudAllowed") else {
-            message = "KI-Gespräch zuerst unter Abgleich & Einstellungen freigeben."; return
+        if let consent = voice.provider.consentKey {
+            guard UserDefaults.standard.bool(forKey: consent) else {
+                message = "Unter KI-Verbindung einrichten die Übertragung an \(voice.provider.title) freigeben."; return
+            }
+            guard !store.data.serverURL.isEmpty, !TokenStore.read().isEmpty else {
+                message = "Zuerst KI-Verbindung einrichten öffnen und die Server-Adresse mit Zugangsschlüssel speichern."; return
+            }
         }
         speech.stop()
         do {
@@ -20,9 +25,15 @@ struct VoiceProposal: Identifiable {
             let configuration = try rules().call("guidedConfiguration") as? [String: Any] ?? [:]
             // No URL, controller credentials, cookies, serial or full project database.
             let context: [String: Any] = ["project":project.name, "station":station.name,
-                "selected": selected.map(pointContext) ?? [:], "vocabulary":try JSON.object(effectiveTerms())]
+                "selected": selected.map(pointContext) ?? [:], "vocabulary":try JSON.object(effectiveTerms()),
+                "pointFilter":["reserveHidden":hideReservePoints, "visible":inspectionPoints.count, "total":points.count]]
             await voice.start(server: store.data.serverURL, token: TokenStore.read(), configuration: configuration, context: context)
         } catch { report(error) }
+    }
+    func selectVoiceProvider(_ provider: VoiceProvider) {
+        guard !locked, voice.provider != provider else { return }
+        speech.stop(); voice.select(provider); stopObservation(); voiceProposal = nil
+        message = "\(provider.title) gewählt. Zum Prüfen das KI-Gespräch starten."
     }
     func stopGuided() { voice.stop(); stopObservation(); voiceProposal = nil }
     func stopObservation() {
@@ -86,18 +97,13 @@ struct VoiceProposal: Identifiable {
             stopObservation()
             let before = selected; try await refresh()
             let filtered: [IOPoint]
-            if query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { filtered = points }
+            if query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { filtered = inspectionPoints }
             else {
-                let result = try rules().decode(SearchResult.self, operation: "search", arguments: ["points":JSON.object(points), "text":query, "terms":termObject()])
+                let result = try rules().decode(SearchResult.self, operation: "search", arguments: ["points":JSON.object(inspectionPoints), "text":query, "terms":termObject()])
                 guard !result.approximate else { throw AppFailure("Filter passt nicht eindeutig. Bitte genauer benennen.") }
                 filtered = result.matches
             }
-            var start = -1
-            if let before {
-                guard let index = points.firstIndex(where: { $0.address == before.address && $0.sameAssignment(as: before) }) else { throw AppFailure("Bisherige Zuordnung geändert. Erneut suchen.") }
-                start = index
-            }
-            guard let next = points.enumerated().first(where: { $0.offset > start && filtered.contains($0.element) })?.element else { throw AppFailure("Kein weiterer passender Datenpunkt in dieser Station.") }
+            let next = try nextInspectionPoint(after: before, matchingKeys: filtered.map(\.key))
             selectedAddress = next.address; candidates = []; suggestions = []; pendingTerm = nil
             return ["selected":pointContext(next)]
         default: throw AppFailure("Diese KI-Aktion ist nicht freigegeben.")

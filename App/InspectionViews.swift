@@ -22,6 +22,14 @@ import SwiftUI
                 if model.busy { ProgressView("Vorgang läuft …") }
             }
             Section("Gemeinsam mit KI prüfen") {
+                Picker("KI-Anbieter", selection: Binding(get: { model.voice.provider }, set: { model.selectVoiceProvider($0) })) {
+                    ForEach(VoiceProvider.allCases) { provider in Text(provider.title).tag(provider) }
+                }.disabled(model.locked)
+                Text(model.voice.provider == .apple ? "Lokale KI auf diesem iPhone. Apple Intelligence muss verfügbar sein." : "Sprachdaten und benötigte Punktinformationen werden an den gewählten Anbieter übertragen.")
+                    .font(.caption).foregroundStyle(.secondary)
+                NavigationLink { SyncView() } label: {
+                    Label("KI-Verbindung einrichten", systemImage: "slider.horizontal.3")
+                }.disabled(model.locked || model.voice.active)
                 Text(model.voice.status).font(.callout)
                 if model.voice.active {
                     Button("KI-Gespräch beenden", systemImage: "stop.circle.fill") { model.stopGuided() }
@@ -39,7 +47,12 @@ import SwiftUI
                 if let proposal = model.voiceProposal {
                     Text("Noch nicht gespeichert").font(.headline)
                     Text(proposal.comment)
-                    Text("Nach dem Vorlesen Ja oder Nein sagen. Zum Korrigieren zuerst Nein sagen.").font(.caption)
+                    Text("Nach dem Vorlesen Ja oder Nein sagen oder antippen. Zum Korrigieren zuerst Nein wählen.").font(.caption)
+                    HStack {
+                        Button("Ja, Kommentar speichern") { model.voice.submit("Ja, speichern") }.buttonStyle(.borderedProminent)
+                        Spacer()
+                        Button("Nein") { model.voice.submit("Nein") }.buttonStyle(.bordered)
+                    }.disabled(model.locked || !model.voice.confirmationReady || model.voice.confirming)
                 }
             }
             Section(model.voice.active ? "Text zum KI-Gespräch" : "Sprechen oder eingeben") {
@@ -90,6 +103,9 @@ import SwiftUI
             if let point = model.selected {
                 Section("Gewählter Datenpunkt") {
                     Text(point.name).font(.headline)
+                    if model.isReserve(point) {
+                        Label(model.hideReservePoints ? "Reserve · in der Liste ausgeblendet" : "Reserve", systemImage: "line.3.horizontal.decrease.circle").font(.caption)
+                    }
                     Text("\(point.busName) · \(point.deviceName) · \(point.terminal)").font(.caption)
                     if !point.description.isEmpty { Text(point.description).font(.callout) }
                     Text(point.displayValue).font(.largeTitle.monospacedDigit()).foregroundStyle(point.online ? .primary : .secondary)
@@ -119,18 +135,31 @@ import SwiftUI
                 }
             }
             Section {
+                Toggle("Reserve ausblenden", isOn: Binding(get: { model.hideReservePoints }, set: { model.setReserveFilter($0) }))
+                    .disabled(model.locked || model.voice.active)
+                Text("\(model.reserveKeys.count) Reservepunkte erkannt · Filter gilt auch für Suche und Weiter/Zurück.").font(.caption).foregroundStyle(.secondary)
+                DisclosureGroup("Welche Punkte gelten als Reserve?") {
+                    Text("Name oder Beschreibung enthält Reserve, RES, Spare, Unused, unbelegt, unbenutzt, nicht belegt, nicht benutzt, nicht verwendet oder not used als eigene Bezeichnung. Reservepumpe und Druckreserve bleiben sichtbar. Bei Bedarf alle Punkte mit dem Schalter anzeigen.").font(.caption)
+                }
                 Button("Stationsdaten aktualisieren", systemImage: "arrow.clockwise") { Task { await model.reload() } }.disabled(model.locked || model.station == nil)
-                ForEach(model.points) { point in
+                if model.inspectionPoints.isEmpty && !model.points.isEmpty {
+                    Text("Alle Datenpunkte sind als Reserve gekennzeichnet. Zum Anzeigen den Filter ausschalten.").font(.callout)
+                }
+                ForEach(model.inspectionPoints) { point in
                     Button { model.choose(point) } label: {
                         HStack {
-                            VStack(alignment: .leading, spacing: 3) { Text(point.name); Text("\(point.terminal) · \(point.busName)").font(.caption).foregroundStyle(.secondary) }
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(point.name)
+                                Text("\(point.terminal) · \(point.busName)").font(.caption).foregroundStyle(.secondary)
+                                if model.isReserve(point) { Text("Reserve").font(.caption).foregroundStyle(.secondary) }
+                            }
                             Spacer()
                             VStack(alignment: .trailing) { Text(point.displayValue).font(.callout); Text(point.statusLabel).font(.caption).foregroundStyle(point.testState == 3 ? .red : .secondary) }
                             if model.selectedAddress == point.address { Image(systemName: "checkmark.circle.fill") }
                         }
                     }.disabled(model.locked)
                 }
-            } header: { Text("Alle Datenpunkte der Station · \(model.points.count)") }
+            } header: { Text("Datenpunkte · \(model.inspectionPoints.count) von \(model.points.count)") }
         }
         .navigationTitle("Prüfen").navigationBarTitleDisplayMode(.inline)
     }
